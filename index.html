@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="EGRelay is a collection of fast, privacy-first browser tools. No accounts, no uploads, no unnecessary tracking.">
+  <meta name="theme-color" content="#10131a">
+  <title>EGRelay — Privacy-first browser tools</title>
+  <link rel="stylesheet" href="./assets/styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="EGRelay home">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span>EG<span class="accent">Relay</span></span>
+    </a>
+
+    <nav class="site-nav" aria-label="Primary navigation">
+      <a href="#tools">Tools</a>
+      <a href="#principles">Principles</a>
+      <a href="https://github.com/phrasing0870">GitHub</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <p class="eyebrow"><span></span> Browser-native utilities</p>
+      <h1>Useful tools.<br><span>Less exposure.</span></h1>
+      <p class="hero-copy">
+        Fast, focused utilities built to run locally in your browser whenever possible.
+        No accounts. No unnecessary uploads. No clutter.
+      </p>
+
+      <div class="hero-actions">
+        <a class="button primary" href="#tools">Explore tools</a>
+        <a class="button secondary" href="https://github.com/phrasing0870">View source</a>
+      </div>
+
+      <div class="status-row" aria-label="Site principles">
+        <span><i></i> Local-first</span>
+        <span><i></i> Open source</span>
+        <span><i></i> No accounts</span>
+      </div>
+    </section>
+
+    <section class="tools-section" id="tools">
+      <div class="section-heading">
+        <div>
+          <p class="section-label">01 / Tools</p>
+          <h2>Choose a utility</h2>
+        </div>
+        <p>Small tools designed to do one job well.</p>
+      </div>
+
+      <div class="tool-grid">
+        <a class="tool-card featured" href="/image-tool/">
+          <div class="tool-card-top">
+            <span class="tool-number">01</span>
+            <span class="tool-arrow" aria-hidden="true">↗</span>
+          </div>
+          <div class="tool-icon image-icon" aria-hidden="true">
+            <span></span>
+          </div>
+          <h3>Image Tool</h3>
+          <p>Convert, compress, resize, preview, and strip image metadata directly in your browser.</p>
+          <div class="tags">
+            <span>Local</span><span>Batch</span><span>Private</span>
+          </div>
+        </a>
+
+        <a class="tool-card" href="/password-generator/">
+          <div class="tool-card-top">
+            <span class="tool-number">02</span>
+            <span class="tool-arrow" aria-hidden="true">↗</span>
+          </div>
+          <div class="tool-icon password-icon" aria-hidden="true">
+            <span></span>
+          </div>
+          <h3>Password Generator</h3>
+          <p>Create secure passwords and passphrases without sending generated data anywhere.</p>
+          <div class="tags">
+            <span>Offline</span><span>Secure</span>
+          </div>
+        </a>
+
+        <a class="tool-card" href="/ledger/">
+          <div class="tool-card-top">
+            <span class="tool-number">03</span>
+            <span class="tool-arrow" aria-hidden="true">↗</span>
+          </div>
+          <div class="tool-icon ledger-icon" aria-hidden="true">
+            <span></span>
+          </div>
+          <h3>Ledger</h3>
+          <p>A private encrypted notepad for writing and storing sensitive notes locally.</p>
+          <div class="tags">
+            <span>Encrypted</span><span>Local</span>
+          </div>
+        </a>
+
+        <a class="tool-card" href="/leak-check/">
+          <div class="tool-card-top">
+            <span class="tool-number">04</span>
+            <span class="tool-arrow" aria-hidden="true">↗</span>
+          </div>
+          <div class="tool-icon network-icon" aria-hidden="true">
+            <span></span>
+          </div>
+          <h3>Leak Check</h3>
+          <p>Inspect your public network information without using a cluttered IP-check website.</p>
+          <div class="tags">
+            <span>Network</span><span>Focused</span>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <section class="principles-section" id="principles">
+      <div class="section-heading">
+        <div>
+          <p class="section-label">02 / Principles</p>
+          <h2>Built with restraint</h2>
+        </div>
+      </div>
+
+      <div class="principle-grid">
+        <article>
+          <span>01</span>
+          <h3>Local when possible</h3>
+          <p>Files and sensitive input stay on your device whenever the tool can operate without a server.</p>
+        </article>
+        <article>
+          <span>02</span>
+          <h3>No forced accounts</h3>
+          <p>Open a tool and use it. No registration wall, newsletter prompt, or artificial friction.</p>
+        </article>
+        <article>
+          <span>03</span>
+          <h3>Focused by design</h3>
+          <p>Each utility is built around a clear job instead of becoming a crowded all-purpose application.</p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <a class="brand footer-brand" href="/">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span>EG<span class="accent">Relay</span></span>
+    </a>
+    <p>Privacy-first browser tools.</p>
+    <div>
+      <a href="https://github.com/phrasing0870">GitHub</a>
+      <span>© <span id="year"></span> EGRelay</span>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>
