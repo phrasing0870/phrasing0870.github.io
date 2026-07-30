@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Checksum Checker — EGRelay</title>
+<meta name="description" content="Verify a downloaded file's SHA-256, SHA-1, or SHA-512 checksum entirely in your browser. Nothing is uploaded.">
+
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<style>
+  :root {
+    --bg: #0d1016;
+    --bg-deep: #080a0e;
+    --panel: #141821;
+    --panel-hover: #181d27;
+    --border: #262d3a;
+    --border-soft: #1d222d;
+    --text: #e7ebf2;
+    --muted: #9ba3b1;
+    --muted-dim: #737b89;
+    --accent: #78afe8;
+    --accent-hover: #91c0ef;
+    --accent-dim: #3d6690;
+    --accent-soft: rgba(120, 175, 232, 0.12);
+    --accent-glow: rgba(120, 175, 232, 0.15);
+    --success: #7cb79a;
+    --danger: #e08a78;
+    --max: 1120px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; color-scheme: dark; }
+  body {
+    margin: 0;
+    font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background:
+      radial-gradient(circle at 50% -10%, var(--accent-glow), transparent 32rem),
+      linear-gradient(rgba(255,255,255,0.014) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.014) 1px, transparent 1px),
+      var(--bg);
+    background-size: auto, 32px 32px, 32px 32px, auto;
+    color: var(--text);
+    min-height: 100vh;
+  }
+  a { color: inherit; }
+  .mono { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; }
+
+  .site-header, .site-footer, .page-wrap {
+    width: min(calc(100% - 40px), var(--max));
+    margin-inline: auto;
+  }
+  .site-header {
+    min-height: 76px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text);
+    text-decoration: none;
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-weight: 700;
+    letter-spacing: 0.055em;
+  }
+  .accent { color: var(--accent); }
+  .brand-mark {
+    width: 13px; height: 13px;
+    border: 2px solid var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 0 4px var(--accent-soft), 0 0 16px var(--accent-glow);
+    position: relative;
+  }
+  .brand-mark::after {
+    content: "";
+    position: absolute;
+    width: 7px; height: 2px;
+    background: var(--accent);
+    right: -7px; top: 3px;
+  }
+  .site-nav { display: flex; gap: 24px; }
+  .site-nav a, .site-footer a { color: var(--muted); text-decoration: none; font-size: 0.82rem; }
+  .site-nav a:hover, .site-footer a:hover { color: var(--text); }
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--muted-dim);
+    text-decoration: none;
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size: 0.76rem;
+    letter-spacing: 0.03em;
+    transition: color 150ms;
+  }
+  .back-link:hover { color: var(--accent); }
+
+  .page-wrap { padding: 40px 0 80px; }
+
+  .masthead { max-width: 640px; margin: 0 auto 28px; }
+  .eyebrow {
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 10px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .eyebrow::before {
+    content: "";
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px 1px var(--accent);
+  }
+  h1 { font-size: 1.65rem; font-weight: 650; letter-spacing: -0.01em; margin: 0 0 6px 0; }
+  p.sub { color: var(--muted); margin: 0; font-size: 0.92rem; line-height: 1.5; max-width: 60ch; }
+
+  .layout {
+    max-width: 640px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .dropzone {
+    border: 1px dashed var(--border);
+    border-radius: 5px;
+    padding: 36px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .dropzone:hover, .dropzone.dragover { border-color: var(--accent); background: var(--accent-soft); }
+  .dropzone .dz-title { font-size: 0.95rem; color: var(--text); margin-bottom: 6px; }
+  .dropzone .dz-sub { font-size: 0.8rem; color: var(--muted-dim); }
+
+  .file-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 18px 20px;
+    display: none;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .file-card.visible { display: flex; }
+
+  .file-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+  .file-meta .file-name {
+    font-size: 0.9rem;
+    color: var(--text);
+    word-break: break-all;
+  }
+  .file-meta .file-size {
+    font-size: 0.78rem;
+    color: var(--muted-dim);
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    white-space: nowrap;
+  }
+  button.clear-btn {
+    background: none;
+    border: none;
+    color: var(--muted-dim);
+    cursor: pointer;
+    font-size: 0.78rem;
+    padding: 4px 8px;
+    flex-shrink: 0;
+    touch-action: manipulation;
+  }
+  button.clear-btn:hover { color: var(--danger); }
+
+  .progress-track {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--bg-deep);
+    overflow: hidden;
+    display: none;
+  }
+  .progress-track.visible { display: block; }
+  .progress-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--accent);
+    transition: width 0.15s;
+  }
+
+  .hash-rows { display: flex; flex-direction: column; gap: 10px; }
+  .hash-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .hash-row .algo-label {
+    width: 68px;
+    flex-shrink: 0;
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  }
+  .hash-row .hash-value {
+    flex: 1;
+    background: var(--bg-deep);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 8px 10px;
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size: 0.78rem;
+    color: var(--success);
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  .hash-row .hash-value.pending { color: var(--muted-dim); }
+  button.copy-btn {
+    background: var(--bg-deep);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 3px;
+    padding: 8px 10px;
+    font-size: 0.76rem;
+    cursor: pointer;
+    flex-shrink: 0;
+    touch-action: manipulation;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  button.copy-btn:hover { color: var(--text); border-color: var(--muted); }
+
+  .compare-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 18px 20px;
+    display: none;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .compare-panel.visible { display: flex; }
+  label.field-label {
+    display: block;
+    font-size: 0.74rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  }
+  textarea#expectedHash {
+    width: 100%;
+    min-height: 60px;
+    background: var(--bg-deep);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 10px;
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size: 0.82rem;
+    resize: vertical;
+  }
+  textarea#expectedHash:focus { outline: none; border-color: var(--accent-dim); }
+
+  .result-banner {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 4px;
+    font-size: 0.88rem;
+    font-weight: 600;
+  }
+  .result-banner.visible { display: flex; }
+  .result-banner.match { background: rgba(124, 183, 154, 0.12); border: 1px solid var(--success); color: var(--success); }
+  .result-banner.mismatch { background: rgba(224, 138, 120, 0.12); border: 1px solid var(--danger); color: var(--danger); }
+  .result-banner .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+
+  .field-hint { font-size: 0.76rem; color: var(--muted-dim); line-height: 1.5; }
+
+  footer.tool-footer {
+    margin-top: 30px;
+    color: var(--muted-dim);
+    font-size: 0.76rem;
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    text-align: center;
+  }
+
+  .site-footer {
+    min-height: 140px;
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    align-items: center;
+    gap: 30px;
+    color: var(--muted-dim);
+    font-size: 0.76rem;
+    border-top: 1px solid var(--border-soft);
+    margin-top: 40px;
+  }
+  .site-footer p { margin: 0; }
+  .site-footer > div { display: flex; gap: 24px; }
+
+  @media (max-width: 600px) {
+    .hash-row { flex-wrap: wrap; }
+    .hash-row .algo-label { width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <a class="brand" href="/" aria-label="EGRelay home">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span>EG<span class="accent">Relay</span></span>
+  </a>
+  <nav class="site-nav" aria-label="Primary navigation">
+    <a href="/#tools">Tools</a>
+    <a href="/#principles">Principles</a>
+    <a href="https://github.com/phrasing0870">GitHub</a>
+  </nav>
+</header>
+
+<div class="page-wrap">
+  <div class="masthead">
+    <a class="back-link" href="/" style="margin-bottom:16px; display:inline-flex;">&larr; All tools</a>
+    <p class="eyebrow">Local &middot; No Uploads &middot; No Accounts</p>
+    <h1>Checksum Checker</h1>
+    <p class="sub">Verify a downloaded file hasn't been corrupted or tampered with. Hashing happens entirely in your browser, the file itself is never uploaded anywhere.</p>
+  </div>
+
+  <div class="layout">
+    <div class="dropzone" id="dropzone">
+      <div class="dz-title">Drop a file here, or click to choose one</div>
+      <div class="dz-sub">SHA-256, SHA-1, and SHA-512 are computed automatically</div>
+      <input type="file" id="fileInput" style="display:none;">
+    </div>
+
+    <div class="file-card" id="fileCard">
+      <div class="file-meta">
+        <span class="file-name mono" id="fileName"></span>
+        <span class="file-size" id="fileSize"></span>
+        <button class="clear-btn" id="clearBtn">Clear</button>
+      </div>
+
+      <div class="progress-track" id="progressTrack">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+
+      <div class="hash-rows">
+        <div class="hash-row">
+          <span class="algo-label">SHA-256</span>
+          <span class="hash-value pending" id="hashSha256">—</span>
+          <button class="copy-btn" data-target="hashSha256">Copy</button>
+        </div>
+        <div class="hash-row">
+          <span class="algo-label">SHA-1</span>
+          <span class="hash-value pending" id="hashSha1">—</span>
+          <button class="copy-btn" data-target="hashSha1">Copy</button>
+        </div>
+        <div class="hash-row">
+          <span class="algo-label">SHA-512</span>
+          <span class="hash-value pending" id="hashSha512">—</span>
+          <button class="copy-btn" data-target="hashSha512">Copy</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="compare-panel" id="comparePanel">
+      <div>
+        <label class="field-label" for="expectedHash">Expected checksum (paste from the download page)</label>
+        <textarea id="expectedHash" placeholder="Paste the published SHA-256 / SHA-1 / SHA-512 hash here"></textarea>
+        <p class="field-hint">Algorithm is detected automatically from the length of what you paste (40 hex chars = SHA-1, 64 = SHA-256, 128 = SHA-512).</p>
+      </div>
+      <div class="result-banner" id="resultBanner">
+        <span class="dot" aria-hidden="true"></span>
+        <span id="resultText"></span>
+      </div>
+    </div>
+
+    <footer class="tool-footer">no network requests &middot; hashing runs entirely in-browser via the Web Crypto API</footer>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <a class="brand" href="/">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span>EG<span class="accent">Relay</span></span>
+  </a>
+  <p>Privacy-first browser tools.</p>
+  <div>
+    <a href="https://github.com/phrasing0870">GitHub</a>
+    <span>© <span id="year"></span> EGRelay</span>
+  </div>
+</footer>
+
+<script>
+document.getElementById('year').textContent = new Date().getFullYear();
+
+(function() {
+  const el = (id) => document.getElementById(id);
+
+  const state = {
+    hashes: { sha1: null, sha256: null, sha512: null }
+  };
+
+  const ALGO_BY_LENGTH = { 40: 'sha1', 64: 'sha256', 128: 'sha512' };
+  const ALGO_LABEL = { sha1: 'SHA-1', sha256: 'SHA-256', sha512: 'SHA-512' };
+  const WEBCRYPTO_NAME = { sha1: 'SHA-1', sha256: 'SHA-256', sha512: 'SHA-512' };
+  const ELEMENT_ID = { sha1: 'hashSha1', sha256: 'hashSha256', sha512: 'hashSha512' };
+
+  function bytesToHex(buffer) {
+    return [...new Uint8Array(buffer)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    const units = ['KB', 'MB', 'GB', 'TB'];
+    let i = -1;
+    do { bytes /= 1024; i++; } while (bytes >= 1024 && i < units.length - 1);
+    return bytes.toFixed(bytes < 10 ? 2 : 1) + ' ' + units[i];
+  }
+
+  async function processFile(file) {
+    el('fileName').textContent = file.name;
+    el('fileSize').textContent = formatBytes(file.size);
+    el('fileCard').classList.add('visible');
+    el('comparePanel').classList.add('visible');
+    el('progressTrack').classList.add('visible');
+    el('progressFill').style.width = '10%';
+    el('resultBanner').classList.remove('visible', 'match', 'mismatch');
+
+    ['sha1', 'sha256', 'sha512'].forEach((algo) => {
+      state.hashes[algo] = null;
+      const target = el(ELEMENT_ID[algo]);
+      target.textContent = 'Computing…';
+      target.classList.add('pending');
+    });
+
+    // Read the whole file into memory once and reuse the same buffer for all
+    // three digests below, rather than re-reading per algorithm. Fine for
+    // anything that comfortably fits in memory, which covers the vast
+    // majority of things people verify checksums for (installers, archives,
+    // disk images). Very large files (multi-GB) could be chunked with a
+    // streaming reducer instead; not implemented here since it adds real
+    // complexity for a case that's uncommon for this tool.
+    const buffer = await file.arrayBuffer();
+    el('progressFill').style.width = '40%';
+
+    const algos = ['sha1', 'sha256', 'sha512'];
+    let completed = 0;
+    await Promise.all(algos.map(async (algo) => {
+      const digest = await crypto.subtle.digest(WEBCRYPTO_NAME[algo], buffer);
+      const hex = bytesToHex(digest);
+      state.hashes[algo] = hex;
+      const target = el(ELEMENT_ID[algo]);
+      target.textContent = hex;
+      target.classList.remove('pending');
+      completed++;
+      el('progressFill').style.width = (40 + (completed / algos.length) * 60) + '%';
+    }));
+
+    setTimeout(() => {
+      el('progressTrack').classList.remove('visible');
+      el('progressFill').style.width = '0%';
+    }, 300);
+
+    compareHashes();
+  }
+
+  function normalizeHash(raw) {
+    return raw.trim().toLowerCase().replace(/[^a-f0-9]/g, '');
+  }
+
+  function compareHashes() {
+    const raw = el('expectedHash').value;
+    const cleaned = normalizeHash(raw);
+    const banner = el('resultBanner');
+    const text = el('resultText');
+
+    if (!cleaned) {
+      banner.classList.remove('visible', 'match', 'mismatch');
+      return;
+    }
+
+    const algo = ALGO_BY_LENGTH[cleaned.length];
+    if (!algo) {
+      banner.classList.add('visible');
+      banner.classList.remove('match', 'mismatch');
+      text.textContent = 'Not a recognized hash length (expected 40, 64, or 128 hex characters)';
+      return;
+    }
+
+    if (!state.hashes[algo]) {
+      banner.classList.remove('visible');
+      return;
+    }
+
+    const computed = state.hashes[algo];
+    const isMatch = computed === cleaned;
+    banner.classList.add('visible');
+    banner.classList.toggle('match', isMatch);
+    banner.classList.toggle('mismatch', !isMatch);
+    text.textContent = isMatch
+      ? ALGO_LABEL[algo] + ' matches — file is intact'
+      : ALGO_LABEL[algo] + ' does not match — file may be corrupted or altered';
+  }
+
+  function clearAll() {
+    el('fileCard').classList.remove('visible');
+    el('comparePanel').classList.remove('visible');
+    el('resultBanner').classList.remove('visible', 'match', 'mismatch');
+    el('expectedHash').value = '';
+    el('fileInput').value = '';
+    state.hashes = { sha1: null, sha256: null, sha512: null };
+  }
+
+  // ---------- wiring ----------
+
+  const dropzone = el('dropzone');
+  const fileInput = el('fileInput');
+
+  dropzone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', (e) => {
+    if (e.target.files[0]) processFile(e.target.files[0]);
+  });
+  dropzone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropzone.classList.add('dragover');
+  });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('dragover');
+    if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]);
+  });
+
+  el('clearBtn').addEventListener('click', clearAll);
+  el('expectedHash').addEventListener('input', compareHashes);
+
+  document.querySelectorAll('.copy-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const value = el(btn.dataset.target).textContent;
+      if (!value || value === '—' || value === 'Computing…') return;
+      navigator.clipboard.writeText(value).then(() => {
+        const orig = btn.textContent;
+        btn.textContent = 'Copied';
+        setTimeout(() => { btn.textContent = orig; }, 1000);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>
