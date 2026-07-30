@@ -1,0 +1,2798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ledger</title>
+<style>
+  :root {
+    --bg: #100f0d;
+    --bg-raised: #17150f;
+    --bg-input: #1e1b15;
+    --border: #2b271e;
+    --border-focus: #423c2d;
+    --text: #ddd7cd;
+    --text-dim: #8a8478;
+    --text-faint: #57524a;
+    --accent: #8f9988;
+    --accent-dim: #55584c;
+    --accent-interactive: #a8bb9c;
+    --accent-glow: rgba(168, 187, 156, 0.35);
+    --danger: #b16b5f;
+    --danger-dim: #5c3a30;
+    --mono: 'SF Mono', 'JetBrains Mono', Consolas, monospace;
+    --serif: Georgia, 'Iowan Old Style', serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  ::selection { background: var(--accent-dim); color: var(--text); }
+
+  input:focus-visible,
+  textarea:focus-visible,
+  button:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+
+  button {
+    font-family: var(--mono);
+    cursor: pointer;
+  }
+
+  input, textarea, button {
+    font-size: 14px;
+  }
+
+  /* ---------- layout shells ---------- */
+
+  .screen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .hidden { display: none !important; }
+
+  /* ---------- unlock / setup screen ---------- */
+
+  .lock-card {
+    width: 100%;
+    max-width: 380px;
+  }
+
+  .lock-mark {
+    font-family: var(--serif);
+    font-size: 13px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+
+  .lock-title {
+    font-family: var(--serif);
+    font-size: 28px;
+    color: var(--text);
+    margin: 0 0 28px 0;
+    font-style: italic;
+  }
+
+  .field-label {
+    display: block;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+
+  .lock-input {
+    width: 100%;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 12px 14px;
+    border-radius: 6px;
+    margin-bottom: 16px;
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+
+  .lock-input:focus { border-color: var(--border-focus); }
+
+  .lock-btn {
+    width: 100%;
+    background: var(--accent-dim);
+    border: 1px solid var(--accent-dim);
+    color: var(--text);
+    padding: 12px 14px;
+    border-radius: 6px;
+    letter-spacing: 0.04em;
+    transition: all 0.15s ease;
+  }
+
+  .lock-btn:hover { background: var(--accent-interactive); border-color: var(--accent-interactive); color: var(--bg); }
+
+  .lock-note {
+    margin-top: 18px;
+    font-size: 12px;
+    color: var(--text-faint);
+    line-height: 1.7;
+  }
+
+  .lock-error {
+    color: var(--danger);
+    font-size: 12px;
+    margin: -8px 0 16px 0;
+    min-height: 14px;
+  }
+
+  .lock-toggle {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 12px;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    padding: 0;
+    margin-top: 20px;
+  }
+  .lock-toggle:hover { color: var(--text); }
+  .lock-toggle.danger-link { color: var(--danger); }
+  .lock-toggle.danger-link:hover { color: #c48678; }
+
+  .vault-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    text-align: left;
+    font-size: inherit;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+  }
+  .vault-row:hover {
+    border-color: var(--border-focus);
+    background: #1f1c15;
+  }
+  .vault-row-label {
+    font-family: var(--serif);
+    font-size: 16px;
+    color: var(--text);
+  }
+  .vault-row-arrow {
+    color: var(--text-faint);
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  /* ---------- app shell ---------- */
+
+  .app {
+    display: none;
+    width: 100%;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 32px 24px 80px 24px;
+  }
+  .app.active { display: block; }
+
+  .app-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 4px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .app-title {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 22px;
+    color: var(--text);
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .export-status {
+    font-size: 11px;
+    color: var(--text-faint);
+    margin-right: 6px;
+    white-space: nowrap;
+  }
+  .export-status.stale { color: var(--danger); }
+
+  .icon-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    transition: all 0.15s ease;
+  }
+  .icon-btn:hover { border-color: var(--border-focus); color: var(--text); }
+  .icon-btn.danger:hover { border-color: var(--danger-dim); color: var(--danger); }
+
+  /* ---------- list view ---------- */
+
+  .list-toolbar {
+    display: flex;
+    gap: 10px;
+    margin: 24px 0 12px 0;
+  }
+
+  .view-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+  }
+
+  .view-tab {
+    background: none;
+    border: 1px solid transparent;
+    color: var(--text-faint);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    transition: all 0.15s ease;
+  }
+  .view-tab:hover { color: var(--text-dim); }
+  .view-tab.active {
+    color: var(--text);
+    border-color: var(--border);
+    background: var(--bg-raised);
+  }
+  .view-tab .tab-count {
+    color: inherit;
+    opacity: 0.6;
+    margin-left: 4px;
+  }
+
+  .search-scope-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: -4px 0 16px 0;
+  }
+  .search-scope-row label {
+    font-size: 11px;
+    color: var(--text-faint);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+  .search-scope-row input[type="checkbox"] {
+    accent-color: var(--accent-interactive);
+  }
+
+  .entry-row-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .entry-row-action-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    transition: all 0.15s ease;
+  }
+  .entry-row-action-btn:hover { border-color: var(--border-focus); color: var(--text); }
+  .entry-row-action-btn.danger:hover { border-color: var(--danger-dim); color: var(--danger); }
+
+  .row-menu-trigger {
+    background: none;
+    border: none;
+    color: var(--text-faint);
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 15px;
+    line-height: 1;
+    opacity: 0;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+  }
+  .entry-row:hover .row-menu-trigger,
+  .row-menu-trigger.menu-open {
+    opacity: 1;
+  }
+  .row-menu-trigger:hover,
+  .row-menu-trigger.menu-open {
+    background: var(--bg-input);
+    color: var(--text);
+  }
+  @media (hover: none) {
+    .row-menu-trigger { opacity: 1; }
+  }
+
+  .row-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-focus);
+    border-radius: 6px;
+    min-width: 150px;
+    z-index: 20;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  }
+  .row-menu-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    padding: 9px 14px;
+    font-size: 12px;
+    transition: all 0.1s ease;
+  }
+  .row-menu-item:hover { background: var(--bg-raised); color: var(--text); }
+  .row-menu-item.danger { color: var(--danger); }
+  .row-menu-item.danger:hover { background: var(--danger-dim); color: var(--text); }
+
+  .history-row {
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+  }
+  .history-row-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .history-row-date {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .history-row-title {
+    font-family: var(--serif);
+    font-size: 14px;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .history-row-preview {
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.5;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    margin-bottom: 10px;
+  }
+
+  .search-input {
+    flex: 1;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 9px 12px;
+    border-radius: 6px;
+    outline: none;
+  }
+  .search-input:focus { border-color: var(--border-focus); }
+  .search-input::placeholder { color: var(--text-faint); }
+
+  .new-entry-btn {
+    background: var(--accent-dim);
+    border: 1px solid var(--accent-dim);
+    color: var(--text);
+    padding: 9px 16px;
+    border-radius: 6px;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+  }
+  .new-entry-btn:hover { background: var(--accent-interactive); border-color: var(--accent-interactive); color: var(--bg); }
+
+  .entry-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .entry-row {
+    background: var(--bg-raised);
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 16px 18px;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+    margin-bottom: 6px;
+  }
+  .entry-row:hover {
+    border-color: var(--border-focus);
+    background: #1f1c15;
+  }
+
+  .entry-row-top {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .entry-row-title {
+    font-family: var(--serif);
+    font-size: 16px;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .entry-row-date {
+    font-size: 11px;
+    color: var(--text-faint);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .entry-row-preview {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .entry-row-meta {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .meta-chip {
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    padding: 2px 7px;
+    border-radius: 10px;
+  }
+  .meta-chip-clickable {
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .meta-chip-clickable:hover {
+    border-color: var(--accent-interactive);
+    color: var(--text);
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-faint);
+  }
+  .empty-state-title {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 17px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+
+  /* ---------- editor view ---------- */
+
+  .editor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+
+  .back-btn {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    padding: 0;
+  }
+  .back-btn:hover { color: var(--text); }
+
+  .editor-actions { display: flex; gap: 8px; }
+
+  .title-input {
+    width: 100%;
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--serif);
+    font-size: 24px;
+    padding: 4px 0 12px 0;
+    margin-bottom: 16px;
+    outline: none;
+  }
+  .title-input::placeholder { color: var(--text-faint); font-style: italic; }
+  .title-input:focus { border-color: var(--border-focus); }
+
+  .meta-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .meta-field { flex: 1; min-width: 140px; }
+
+  .meta-field-label {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-bottom: 6px;
+  }
+
+  .meta-input {
+    width: 100%;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 10px;
+    border-radius: 6px;
+    outline: none;
+  }
+  .meta-input:focus { border-color: var(--border-focus); }
+
+  select.meta-input { appearance: none; cursor: pointer; }
+
+  .body-textarea {
+    width: 100%;
+    min-height: 50vh;
+    background: none;
+    border: none;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.8;
+    resize: vertical;
+    outline: none;
+    padding: 0;
+  }
+  .body-textarea::placeholder { color: var(--text-faint); }
+
+  .save-status {
+    font-size: 11px;
+    color: var(--text-faint);
+    text-align: right;
+    margin-top: 16px;
+  }
+
+  /* ---------- modal (confirm / export-import) ---------- */
+
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 24px;
+  }
+
+  .modal {
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 24px;
+    width: 100%;
+    max-width: 380px;
+  }
+
+  .modal-title {
+    font-family: var(--serif);
+    font-size: 17px;
+    margin-bottom: 10px;
+  }
+
+  .modal-body {
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.6;
+    margin-bottom: 20px;
+  }
+
+  .modal-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+
+  .modal-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+  }
+  .modal-btn:hover { color: var(--text); border-color: var(--border-focus); }
+  .modal-btn.confirm-danger { border-color: var(--danger-dim); color: var(--danger); }
+  .modal-btn.confirm-danger:hover { background: var(--danger-dim); color: var(--text); }
+
+  .file-input-hidden { display: none; }
+
+  /* ---------- settings view ---------- */
+
+  .settings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+  }
+
+  .settings-title {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 20px;
+  }
+
+  .settings-section {
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+
+  .settings-section-title {
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+
+  .settings-section-desc {
+    font-size: 12px;
+    color: var(--text-faint);
+    line-height: 1.6;
+    margin-bottom: 16px;
+  }
+
+  .settings-stat-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--text-dim);
+    padding: 6px 0;
+  }
+  .settings-stat-row span:last-child { color: var(--text); }
+
+  .settings-input {
+    width: 100%;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 12px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    outline: none;
+  }
+  .settings-input:focus { border-color: var(--border-focus); }
+
+  .settings-btn {
+    background: var(--accent-dim);
+    border: 1px solid var(--accent-dim);
+    color: var(--text);
+    padding: 9px 16px;
+    border-radius: 6px;
+    transition: all 0.15s ease;
+  }
+  .settings-btn:hover { background: var(--accent-interactive); border-color: var(--accent-interactive); color: var(--bg); }
+  .settings-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .settings-btn.danger-btn {
+    background: none;
+    border: 1px solid var(--danger-dim);
+    color: var(--danger);
+  }
+  .settings-btn.danger-btn:hover { background: var(--danger-dim); color: var(--text); }
+
+  .settings-error {
+    color: var(--danger);
+    font-size: 12px;
+    margin-bottom: 10px;
+    min-height: 14px;
+  }
+
+  .settings-success {
+    color: var(--accent);
+    font-size: 12px;
+    margin-bottom: 10px;
+    min-height: 14px;
+  }
+
+  @media (max-width: 480px) {
+    .app { padding: 20px 16px 60px 16px; }
+    .meta-row { flex-direction: column; }
+  }
+</style>
+<script type="module">
+  // Argon2id support via hash-wasm, loaded once and exposed on window so the
+  // main (non-module) script below can call it. PBKDF2 remains fully native
+  // via Web Crypto and needs no dependency; this is only for Argon2id.
+  import { argon2id } from 'https://cdn.jsdelivr.net/npm/hash-wasm@4.11.0/dist/index.esm.min.js';
+  window.__argon2id = argon2id;
+  window.__argon2idReady = true;
+</script>
+</head>
+<body>
+
+<!-- ===== VAULT PICKER SCREEN ===== -->
+<div class="screen" id="pickerScreen">
+  <div class="lock-card">
+    <div class="lock-mark">ledger</div>
+    <h1 class="lock-title">notebooks</h1>
+
+    <div id="vaultList"></div>
+
+    <div class="empty-state hidden" id="vaultListEmpty" style="padding: 24px 0;">
+      <div class="empty-state-title">no notebooks yet</div>
+      <div>create your first one below.</div>
+    </div>
+
+    <button class="lock-btn" id="newVaultBtn" style="margin-top: 16px;">+ new notebook</button>
+
+    <div class="lock-note">
+      each notebook is fully separate: its own passphrase, its own encrypted storage. opening one never exposes or requires access to the others.
+    </div>
+
+    <button class="lock-toggle" id="importVaultBtn">import a notebook from a backup file</button>
+    <input type="file" class="file-input-hidden" id="restoreFileInput" accept=".json" />
+  </div>
+</div>
+
+<!-- ===== LOCK / SETUP SCREEN ===== -->
+<div class="screen hidden" id="lockScreen">
+  <div class="lock-card">
+    <button class="lock-toggle" id="backToPickerBtn" style="margin-top: 0; margin-bottom: 20px;">&larr; all notebooks</button>
+    <div class="lock-mark" id="lockMark">ledger</div>
+    <h1 class="lock-title" id="lockTitle">unlock</h1>
+
+    <label class="field-label" id="passLabel">passphrase</label>
+    <input type="password" class="lock-input" id="passInput" autocomplete="off" />
+
+    <input type="password" class="lock-input hidden" id="passConfirmInput" placeholder="confirm passphrase" autocomplete="off" />
+
+    <div class="lock-error" id="lockError"></div>
+
+    <button class="lock-btn" id="lockSubmit">unlock</button>
+
+    <div class="lock-note" id="lockNote">
+      entries are encrypted in your browser before they touch disk. there is no server, no account, and no password recovery. if you lose this passphrase, this notebook's entries are unrecoverable by design.
+    </div>
+
+    <button class="lock-toggle danger-link hidden" id="deleteVaultBtn">delete this notebook from this browser</button>
+  </div>
+</div>
+
+<!-- ===== APP SHELL ===== -->
+<div class="app" id="app">
+
+  <!-- LIST VIEW -->
+  <div id="listView">
+    <div class="app-header">
+      <div class="app-title" id="appTitle">ledger</div>
+      <div class="header-actions">
+        <span class="export-status" id="exportStatus"></span>
+        <button class="icon-btn" id="settingsBtn">settings</button>
+        <button class="icon-btn danger" id="lockBtn">lock</button>
+      </div>
+    </div>
+
+    <div class="view-tabs" id="viewTabs">
+      <button class="view-tab active" id="tabActive" data-view="active">entries<span class="tab-count" id="countActive"></span></button>
+      <button class="view-tab" id="tabArchived" data-view="archived">archived<span class="tab-count" id="countArchived"></span></button>
+      <button class="view-tab" id="tabTrash" data-view="trash">trash<span class="tab-count" id="countTrash"></span></button>
+      <button class="icon-btn danger hidden" id="emptyTrashBtn" style="margin-left: auto;">empty trash</button>
+    </div>
+
+    <div class="list-toolbar">
+      <input type="text" class="search-input" id="searchInput" placeholder="search entries…" />
+      <button class="new-entry-btn" id="newEntryBtn">+ new entry</button>
+    </div>
+
+    <div class="search-scope-row hidden" id="searchScopeRow">
+      <label><input type="checkbox" id="includeArchivedSearch" /> include archived in search</label>
+    </div>
+
+    <div class="entry-list" id="entryList"></div>
+
+    <div class="empty-state hidden" id="emptyState">
+      <div class="empty-state-title">nothing written yet</div>
+      <div>start your first entry above.</div>
+    </div>
+  </div>
+
+  <!-- EDITOR VIEW -->
+  <div id="editorView" class="hidden">
+    <div class="editor-header">
+      <button class="back-btn" id="backBtn">&larr; back</button>
+      <div class="editor-actions">
+        <button class="icon-btn" id="historyBtn">history</button>
+        <button class="icon-btn" id="duplicateEntryBtn">duplicate</button>
+        <button class="icon-btn" id="exportEntryBtn">export as text</button>
+        <button class="icon-btn hidden" id="archiveEntryBtn">archive</button>
+        <button class="icon-btn hidden" id="unarchiveEntryBtn">unarchive</button>
+        <button class="icon-btn hidden" id="restoreEntryBtn">restore</button>
+        <button class="icon-btn danger hidden" id="deleteEntryBtn">delete</button>
+        <button class="icon-btn danger hidden" id="deleteForeverBtn">delete forever</button>
+      </div>
+    </div>
+
+    <input type="text" class="title-input" id="entryTitle" placeholder="untitled entry" />
+
+    <div class="meta-row">
+      <div class="meta-field">
+        <label class="meta-field-label">tags (optional, comma separated)</label>
+        <input type="text" class="meta-input" id="entryTags" placeholder="e.g. work, ideas, travel" />
+      </div>
+    </div>
+
+    <textarea class="body-textarea" id="entryBody" placeholder="write…"></textarea>
+
+    <div class="save-status" id="saveStatus"></div>
+  </div>
+
+  <!-- HISTORY VIEW -->
+  <div id="historyView" class="hidden">
+    <div class="settings-header">
+      <button class="back-btn" id="historyBackBtn">&larr; back</button>
+      <div class="settings-title">version history</div>
+      <div style="width: 40px;"></div>
+    </div>
+    <div class="settings-section-desc" style="margin-bottom: 16px;">a version is saved automatically before each meaningful change. restoring a version saves your current draft as a version too, so you can always undo a restore.</div>
+    <div id="historyList"></div>
+    <div class="empty-state hidden" id="historyEmptyState">
+      <div class="empty-state-title">no earlier versions</div>
+      <div>versions appear here once you've made and saved an edit.</div>
+    </div>
+  </div>
+
+  <!-- SETTINGS VIEW -->
+  <div id="settingsView" class="hidden">
+    <div class="settings-header">
+      <button class="back-btn" id="settingsBackBtn">&larr; back</button>
+      <div class="settings-title">settings</div>
+      <div style="width: 40px;"></div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">backup</div>
+      <div class="settings-section-desc">export downloads an encrypted backup of this notebook. import restores a backup into this notebook, replacing what's currently here. last export shown below under storage.</div>
+      <button class="settings-btn" id="exportBtn" style="margin-right: 8px;">export this notebook</button>
+      <button class="settings-btn" id="importBtn">import a backup</button>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">auto-lock</div>
+      <div class="settings-section-desc">automatically locks this notebook after a period of inactivity, so it doesn't stay decrypted if you walk away. applies to all notebooks on this browser.</div>
+      <select class="settings-input" id="autoLockSelect">
+        <option value="0">never</option>
+        <option value="5">after 5 minutes</option>
+        <option value="15">after 15 minutes</option>
+        <option value="30">after 30 minutes</option>
+      </select>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">encryption</div>
+      <div class="settings-stat-row"><span>cipher</span><span>AES-256-GCM</span></div>
+      <div class="settings-stat-row"><span>key derivation</span><span id="statKdf">—</span></div>
+      <div class="settings-stat-row"><span>entries verified this session</span><span id="statVerified">—</span></div>
+      <div class="settings-section-desc" id="cryptoStatusNote" style="margin-top: 12px; margin-bottom: 0;"></div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">storage</div>
+      <div class="settings-stat-row"><span>entries (all, incl. archived/trash)</span><span id="statEntryCount">—</span></div>
+      <div class="settings-stat-row"><span>saved versions</span><span id="statVersionCount">—</span></div>
+      <div class="settings-stat-row"><span>approx. size</span><span id="statSize">—</span></div>
+      <div class="settings-stat-row"><span>last export</span><span id="statLastExport">—</span></div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">version history</div>
+      <div class="settings-section-desc">a version is saved automatically before each meaningful edit. more versions means more storage used per entry; keeping this low is recommended.</div>
+      <div class="settings-error" id="historyLimitWarning"></div>
+      <input type="number" class="settings-input" id="historyLimitInput" min="1" max="100" />
+      <button class="settings-btn" id="saveHistoryLimitBtn">save limit</button>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">change passphrase</div>
+      <div class="settings-section-desc">re-encrypts every entry with a new key. this can take a moment if you have many entries. do not close this tab while it runs.</div>
+      <div class="settings-error" id="passChangeError"></div>
+      <div class="settings-success" id="passChangeSuccess"></div>
+      <input type="password" class="settings-input" id="currentPassInput" placeholder="current passphrase" autocomplete="off" />
+      <input type="password" class="settings-input" id="newPassInput" placeholder="new passphrase" autocomplete="off" />
+      <input type="password" class="settings-input" id="newPassConfirmInput" placeholder="confirm new passphrase" autocomplete="off" />
+      <button class="settings-btn" id="changePassBtn">change passphrase</button>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">erase this notebook</div>
+      <div class="settings-section-desc">permanently deletes all entries and versions in this notebook only. other notebooks are not affected. export a backup first if you want to keep anything.</div>
+      <button class="settings-btn danger-btn" id="eraseAllBtn">erase this notebook's entries</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ===== MODAL ===== -->
+<div class="modal-overlay hidden" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle"></div>
+    <div class="modal-body" id="modalBody"></div>
+    <input type="text" class="lock-input hidden" id="modalInput" style="margin-top: 4px; margin-bottom: 4px;" />
+    <div class="modal-actions" id="modalActions"></div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // ---------- constants ----------
+  const REGISTRY_DB_NAME = 'ledger_registry';
+  const REGISTRY_DB_VERSION = 1;
+  const STORE_VAULTS = 'vaults';
+  const DB_NAME_PREFIX = 'ledger_db__';
+  const DB_VERSION = 3;
+  const STORE_ENTRIES = 'entries';
+  const STORE_META = 'meta';
+  const STORE_VERSIONS = 'versions';
+  const STORE_STAGING_ENTRIES = 'staging_entries';
+  const STORE_STAGING_VERSIONS = 'staging_versions';
+  const PBKDF2_ITERATIONS = 650000;
+  const ARGON2ID_MEMORY_KB = 65536; // 64 MB
+  const ARGON2ID_ITERATIONS = 3;
+  const ARGON2ID_PARALLELISM = 1;
+  const KDF_PBKDF2 = 'pbkdf2';
+  const KDF_ARGON2ID = 'argon2id';
+  const CURRENT_DEFAULT_KDF = KDF_ARGON2ID;
+  const STALE_EXPORT_DAYS = 7;
+  const DEFAULT_HISTORY_LIMIT = 15;
+  const AUTO_LOCK_STORAGE_KEY = 'ledger_autolock_minutes';
+  const MAX_RECOMMENDED_HISTORY_LIMIT = 30;
+
+  let registryDb = null;
+  let db = null;
+  let currentVaultId = null;
+  let currentVaultLabel = '';
+  let cryptoKey = null;
+  let entries = []; // decrypted, in-memory: {id, title, body, tags, createdAt, updatedAt, archivedAt, deletedAt}
+  let currentEntryId = null;
+  let autosaveTimer = null;
+  let sessionDecryptStats = { verified: 0, failed: 0 };
+  let currentView = 'active'; // 'active' | 'archived' | 'trash'
+
+  // ---------- utility: encoding ----------
+  const enc = new TextEncoder();
+  const dec = new TextDecoder();
+
+  function bufToB64(buf) {
+    const bytes = new Uint8Array(buf);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary);
+  }
+  function b64ToBuf(b64) {
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes.buffer;
+  }
+
+  // ---------- IndexedDB setup ----------
+  function openDb(vaultId) {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME_PREFIX + vaultId, DB_VERSION);
+      req.onupgradeneeded = (e) => {
+        const _db = e.target.result;
+        if (!_db.objectStoreNames.contains(STORE_ENTRIES)) {
+          _db.createObjectStore(STORE_ENTRIES, { keyPath: 'id' });
+        }
+        if (!_db.objectStoreNames.contains(STORE_META)) {
+          _db.createObjectStore(STORE_META, { keyPath: 'key' });
+        }
+        if (!_db.objectStoreNames.contains(STORE_VERSIONS)) {
+          const versionsStore = _db.createObjectStore(STORE_VERSIONS, { keyPath: 'id' });
+          versionsStore.createIndex('entryId', 'entryId', { unique: false });
+        }
+        if (!_db.objectStoreNames.contains(STORE_STAGING_ENTRIES)) {
+          _db.createObjectStore(STORE_STAGING_ENTRIES, { keyPath: 'id' });
+        }
+        if (!_db.objectStoreNames.contains(STORE_STAGING_VERSIONS)) {
+          _db.createObjectStore(STORE_STAGING_VERSIONS, { keyPath: 'id' });
+        }
+      };
+      req.onsuccess = (e) => resolve(e.target.result);
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  function openRegistryDb() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(REGISTRY_DB_NAME, REGISTRY_DB_VERSION);
+      req.onupgradeneeded = (e) => {
+        const _db = e.target.result;
+        if (!_db.objectStoreNames.contains(STORE_VAULTS)) {
+          _db.createObjectStore(STORE_VAULTS, { keyPath: 'id' });
+        }
+      };
+      req.onsuccess = (e) => resolve(e.target.result);
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  function genVaultId() {
+    return 'vault_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+  }
+
+  function listVaults() {
+    return new Promise((resolve, reject) => {
+      const tx = registryDb.transaction(STORE_VAULTS, 'readonly');
+      const req = tx.objectStore(STORE_VAULTS).getAll();
+      req.onsuccess = () => resolve(req.result.sort((a, b) => a.createdAt - b.createdAt));
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  function registerVault(id, label) {
+    return new Promise((resolve, reject) => {
+      const tx = registryDb.transaction(STORE_VAULTS, 'readwrite');
+      tx.objectStore(STORE_VAULTS).put({ id, label, createdAt: Date.now() });
+      tx.oncomplete = () => resolve();
+      tx.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  function unregisterVault(id) {
+    return new Promise((resolve, reject) => {
+      const tx = registryDb.transaction(STORE_VAULTS, 'readwrite');
+      tx.objectStore(STORE_VAULTS).delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  function idbGet(store, key) {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(store, 'readonly');
+      const req = tx.objectStore(store).get(key);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  function idbGetAll(store) {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(store, 'readonly');
+      const req = tx.objectStore(store).getAll();
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  function idbGetAllByIndex(store, indexName, value) {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(store, 'readonly');
+      const req = tx.objectStore(store).index(indexName).getAll(value);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  function idbPut(store, value) {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(store, 'readwrite');
+      tx.objectStore(store).put(value);
+      tx.oncomplete = () => resolve();
+      tx.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  function idbDelete(store, key) {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(store, 'readwrite');
+      tx.objectStore(store).delete(key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  function idbClearAll(store) {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(store, 'readwrite');
+      tx.objectStore(store).clear();
+      tx.oncomplete = () => resolve();
+      tx.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  // ---------- crypto ----------
+  async function waitForArgon2Ready(timeoutMs) {
+    const start = Date.now();
+    while (!window.__argon2idReady) {
+      if (Date.now() - start > timeoutMs) {
+        throw new Error('Argon2id library failed to load. Check your internet connection and reload the page.');
+      }
+      await new Promise(r => setTimeout(r, 50));
+    }
+  }
+
+  async function deriveKeyPBKDF2(passphrase, saltB64) {
+    const salt = b64ToBuf(saltB64);
+    const baseKey = await crypto.subtle.importKey(
+      'raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveKey']
+    );
+    return crypto.subtle.deriveKey(
+      { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+      baseKey,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt', 'decrypt']
+    );
+  }
+
+  async function deriveKeyArgon2id(passphrase, saltB64) {
+    await waitForArgon2Ready(15000);
+    const salt = new Uint8Array(b64ToBuf(saltB64));
+    const keyHex = await window.__argon2id({
+      password: passphrase,
+      salt,
+      memorySize: ARGON2ID_MEMORY_KB,
+      iterations: ARGON2ID_ITERATIONS,
+      parallelism: ARGON2ID_PARALLELISM,
+      hashLength: 32,
+      outputType: 'hex'
+    });
+    const keyBytes = new Uint8Array(keyHex.match(/.{1,2}/g).map(b => parseInt(b, 16)));
+    return crypto.subtle.importKey(
+      'raw', keyBytes, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']
+    );
+  }
+
+  // dispatches to the correct KDF based on what a given vault was set up
+  // with. existing vaults keep working under PBKDF2 forever unless the
+  // passphrase is changed, which upgrades them to Argon2id as part of the
+  // same re-encryption pass. new vaults default to Argon2id from creation.
+  async function deriveKeyForVault(passphrase, saltB64, kdf) {
+    if (kdf === KDF_ARGON2ID) return deriveKeyArgon2id(passphrase, saltB64);
+    return deriveKeyPBKDF2(passphrase, saltB64);
+  }
+
+  async function encryptJson(obj) {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const plaintext = enc.encode(JSON.stringify(obj));
+    const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, plaintext);
+    return { iv: bufToB64(iv), data: bufToB64(ciphertext) };
+  }
+
+  async function decryptJson(payload) {
+    const iv = b64ToBuf(payload.iv);
+    const ciphertext = b64ToBuf(payload.data);
+    const plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(iv) }, cryptoKey, ciphertext);
+    return JSON.parse(dec.decode(plaintext));
+  }
+
+  function randomSaltB64() {
+    return bufToB64(crypto.getRandomValues(new Uint8Array(16)).buffer);
+  }
+
+  function genId() {
+    return 'e_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+  }
+
+  // ---------- DOM refs ----------
+  const $ = (id) => document.getElementById(id);
+  const pickerScreen = $('pickerScreen');
+  const vaultList = $('vaultList');
+  const vaultListEmpty = $('vaultListEmpty');
+  const newVaultBtn = $('newVaultBtn');
+  const importVaultBtn = $('importVaultBtn');
+  const restoreFileInput = $('restoreFileInput');
+
+  const lockScreen = $('lockScreen');
+  const backToPickerBtn = $('backToPickerBtn');
+  const lockTitle = $('lockTitle');
+  const passLabel = $('passLabel');
+  const passInput = $('passInput');
+  const passConfirmInput = $('passConfirmInput');
+  const lockError = $('lockError');
+  const lockSubmit = $('lockSubmit');
+  const lockNote = $('lockNote');
+  const deleteVaultBtn = $('deleteVaultBtn');
+
+  const app = $('app');
+  const listView = $('listView');
+  const editorView = $('editorView');
+  const settingsView = $('settingsView');
+  const historyView = $('historyView');
+  const entryList = $('entryList');
+  const emptyState = $('emptyState');
+  const searchInput = $('searchInput');
+  const newEntryBtn = $('newEntryBtn');
+  const tabActive = $('tabActive');
+  const tabArchived = $('tabArchived');
+  const tabTrash = $('tabTrash');
+  const countActive = $('countActive');
+  const countArchived = $('countArchived');
+  const countTrash = $('countTrash');
+  const searchScopeRow = $('searchScopeRow');
+  const includeArchivedSearch = $('includeArchivedSearch');
+  const emptyTrashBtn = $('emptyTrashBtn');
+  const exportBtn = $('exportBtn');
+  const appTitle = $('appTitle');
+  const exportStatus = $('exportStatus');
+  const importBtn = $('importBtn');
+  const lockBtn = $('lockBtn');
+
+  const backBtn = $('backBtn');
+  const deleteEntryBtn = $('deleteEntryBtn');
+  const archiveEntryBtn = $('archiveEntryBtn');
+  const unarchiveEntryBtn = $('unarchiveEntryBtn');
+  const restoreEntryBtn = $('restoreEntryBtn');
+  const deleteForeverBtn = $('deleteForeverBtn');
+  const historyBtn = $('historyBtn');
+  const duplicateEntryBtn = $('duplicateEntryBtn');
+  const exportEntryBtn = $('exportEntryBtn');
+  const historyBackBtn = $('historyBackBtn');
+  const historyList = $('historyList');
+  const historyEmptyState = $('historyEmptyState');
+  const historyLimitInput = $('historyLimitInput');
+  const autoLockSelect = $('autoLockSelect');
+  const saveHistoryLimitBtn = $('saveHistoryLimitBtn');
+  const historyLimitWarning = $('historyLimitWarning');
+  const statVersionCount = $('statVersionCount');
+  const entryTitle = $('entryTitle');
+  const entryTags = $('entryTags');
+  const entryBody = $('entryBody');
+  const saveStatus = $('saveStatus');
+
+  const modalOverlay = $('modalOverlay');
+  const modalTitle = $('modalTitle');
+  const modalBody = $('modalBody');
+  const modalActions = $('modalActions');
+  const modalInput = $('modalInput');
+
+  const settingsBtn = $('settingsBtn');
+  const settingsBackBtn = $('settingsBackBtn');
+  const statEntryCount = $('statEntryCount');
+  const statSize = $('statSize');
+  const statLastExport = $('statLastExport');
+  const statVerified = $('statVerified');
+  const statKdf = $('statKdf');
+  const cryptoStatusNote = $('cryptoStatusNote');
+  const currentPassInput = $('currentPassInput');
+  const newPassInput = $('newPassInput');
+  const newPassConfirmInput = $('newPassConfirmInput');
+  const changePassBtn = $('changePassBtn');
+  const passChangeError = $('passChangeError');
+  const passChangeSuccess = $('passChangeSuccess');
+  const eraseAllBtn = $('eraseAllBtn');
+
+  let isSetupMode = false;
+
+  // ---------- modal helper ----------
+  function showModal(title, body, actions) {
+    modalTitle.textContent = title;
+    modalBody.textContent = body;
+    modalInput.classList.add('hidden');
+    modalActions.innerHTML = '';
+    actions.forEach(a => {
+      const btn = document.createElement('button');
+      btn.className = 'modal-btn' + (a.danger ? ' confirm-danger' : '');
+      btn.textContent = a.label;
+      btn.onclick = () => { hideModal(); a.onClick && a.onClick(); };
+      modalActions.appendChild(btn);
+    });
+    modalOverlay.classList.remove('hidden');
+  }
+  function hideModal() { modalOverlay.classList.add('hidden'); }
+
+  // shows a modal with a text input, resolves with the trimmed value or null if cancelled.
+  function showPrompt(title, body, placeholder, defaultValue) {
+    return new Promise((resolve) => {
+      modalTitle.textContent = title;
+      modalBody.textContent = body;
+      modalInput.classList.remove('hidden');
+      modalInput.value = defaultValue || '';
+      modalInput.placeholder = placeholder || '';
+      modalActions.innerHTML = '';
+
+      const submit = () => {
+        const val = modalInput.value.trim();
+        hideModal();
+        resolve(val || null);
+      };
+      const cancel = () => { hideModal(); resolve(null); };
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'modal-btn';
+      cancelBtn.textContent = 'cancel';
+      cancelBtn.onclick = cancel;
+
+      const okBtn = document.createElement('button');
+      okBtn.className = 'modal-btn';
+      okBtn.textContent = 'ok';
+      okBtn.onclick = submit;
+
+      modalActions.appendChild(cancelBtn);
+      modalActions.appendChild(okBtn);
+      modalOverlay.classList.remove('hidden');
+      modalInput.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
+      setTimeout(() => modalInput.focus(), 50);
+    });
+  }
+
+  // ---------- vault picker ----------
+  async function init() {
+    registryDb = await openRegistryDb();
+    await showPicker();
+  }
+
+  async function showPicker() {
+    lockScreen.classList.add('hidden');
+    pickerScreen.classList.remove('hidden');
+    app.classList.remove('active');
+    db = null;
+    currentVaultId = null;
+    currentVaultLabel = '';
+
+    const vaults = await listVaults();
+    vaultList.innerHTML = '';
+    vaultListEmpty.classList.toggle('hidden', vaults.length > 0);
+
+    vaults.forEach(v => {
+      const row = document.createElement('button');
+      row.className = 'vault-row';
+      row.onclick = () => openVaultPassphraseScreen(v.id, v.label);
+
+      const label = document.createElement('div');
+      label.className = 'vault-row-label';
+      label.textContent = v.label;
+
+      const arrow = document.createElement('div');
+      arrow.className = 'vault-row-arrow';
+      arrow.textContent = '→';
+
+      row.appendChild(label);
+      row.appendChild(arrow);
+      vaultList.appendChild(row);
+    });
+  }
+
+  function openVaultPassphraseScreen(vaultId, label) {
+    currentVaultId = vaultId;
+    currentVaultLabel = label;
+    isSetupMode = false;
+    pickerScreen.classList.add('hidden');
+    lockScreen.classList.remove('hidden');
+    lockTitle.textContent = label;
+    passLabel.textContent = 'passphrase';
+    passConfirmInput.classList.add('hidden');
+    passConfirmInput.value = '';
+    lockSubmit.textContent = 'unlock';
+    lockSubmit.disabled = false;
+    lockError.textContent = '';
+    lockNote.textContent = 'entries are encrypted in your browser before they touch disk. there is no server, no account, and no password recovery. if you lose this passphrase, this notebook\u2019s entries are unrecoverable by design.';
+    deleteVaultBtn.classList.remove('hidden');
+    passInput.value = '';
+    passInput.focus();
+  }
+
+  newVaultBtn.addEventListener('click', startNewVaultFlow);
+
+  function startNewVaultFlow() {
+    currentVaultId = genVaultId();
+    currentVaultLabel = '';
+    isSetupMode = true;
+    pickerScreen.classList.add('hidden');
+    lockScreen.classList.remove('hidden');
+    lockTitle.textContent = 'new notebook';
+    passLabel.textContent = 'choose a passphrase';
+    passConfirmInput.classList.remove('hidden');
+    passConfirmInput.value = '';
+    lockSubmit.textContent = 'create';
+    lockSubmit.disabled = false;
+    lockError.textContent = '';
+    lockNote.textContent = 'entries are encrypted in your browser before they touch disk. there is no server, no account, and no password recovery. if you lose this passphrase, this notebook\u2019s entries are unrecoverable by design.';
+    deleteVaultBtn.classList.add('hidden');
+    passInput.value = '';
+    passInput.focus();
+  }
+
+  backToPickerBtn.addEventListener('click', showPicker);
+
+  async function handleSetup() {
+    const p1 = passInput.value;
+    const p2 = passConfirmInput.value;
+    lockError.textContent = '';
+
+    if (p1.length < 8) {
+      lockError.textContent = 'use at least 8 characters. this is your only recovery mechanism.';
+      return;
+    }
+    if (p1 !== p2) {
+      lockError.textContent = 'passphrases do not match.';
+      return;
+    }
+
+    const label = await showPrompt('name this notebook', 'this name is only shown here on this browser, to tell your notebooks apart.', 'e.g. "personal", "work"');
+    if (!label) {
+      lockError.textContent = 'a notebook needs a name to tell it apart from others.';
+      return;
+    }
+
+    lockSubmit.disabled = true;
+    lockSubmit.textContent = 'setting up…';
+
+    db = await openDb(currentVaultId);
+    const salt = randomSaltB64();
+    cryptoKey = await deriveKeyForVault(p1, salt, CURRENT_DEFAULT_KDF);
+    const verifyPayload = await encryptJson({ check: 'ledger-ok' });
+    await idbPut(STORE_META, { key: 'salt', value: salt });
+    await idbPut(STORE_META, { key: 'verify', value: verifyPayload });
+    await idbPut(STORE_META, { key: 'kdf', value: CURRENT_DEFAULT_KDF });
+    await registerVault(currentVaultId, label);
+    currentVaultLabel = label;
+
+    entries = [];
+    sessionDecryptStats = { verified: 0, failed: 0 };
+    enterApp();
+  }
+
+  async function handleUnlock() {
+    const p1 = passInput.value;
+    lockError.textContent = '';
+    lockSubmit.disabled = true;
+    lockSubmit.textContent = 'unlocking…';
+
+    try {
+      db = await openDb(currentVaultId);
+      const recoveredRekey = await recoverInterruptedRekey();
+      const saltRecord = await idbGet(STORE_META, 'salt');
+      const verifyRecord = await idbGet(STORE_META, 'verify');
+      const kdfRecord = await idbGet(STORE_META, 'kdf');
+      const kdf = kdfRecord ? kdfRecord.value : KDF_PBKDF2; // vaults from before this change never wrote a kdf field
+
+      let progressTimer = null;
+      if (kdf === KDF_ARGON2ID) {
+        const startedAt = Date.now();
+        lockSubmit.textContent = 'unlocking… (0s)';
+        progressTimer = setInterval(() => {
+          const secs = Math.floor((Date.now() - startedAt) / 1000);
+          lockSubmit.textContent = `unlocking… (${secs}s)`;
+        }, 500);
+      } else {
+        lockSubmit.textContent = 'unlocking…';
+      }
+
+      try {
+        cryptoKey = await deriveKeyForVault(p1, saltRecord.value, kdf);
+      } finally {
+        if (progressTimer) clearInterval(progressTimer);
+      }
+      await decryptJson(verifyRecord.value); // throws if wrong passphrase
+      if (recoveredRekey) {
+        lockNote.textContent = 'an interrupted passphrase change from last time was completed automatically. if this didn\u2019t unlock, try the newer passphrase you set.';
+      }
+
+      const rows = await idbGetAll(STORE_ENTRIES);
+      entries = [];
+      sessionDecryptStats = { verified: 0, failed: 0 };
+      for (const row of rows) {
+        try {
+          const decrypted = await decryptJson(row.payload);
+          entries.push(Object.assign({ archivedAt: null, deletedAt: null }, decrypted, { id: row.id }));
+          sessionDecryptStats.verified++;
+        } catch (e) {
+          console.error('failed to decrypt entry', row.id, e);
+          sessionDecryptStats.failed++;
+        }
+      }
+      enterApp();
+    } catch (e) {
+      lockError.textContent = 'incorrect passphrase.';
+      lockSubmit.disabled = false;
+      lockSubmit.textContent = 'unlock';
+      db = null;
+    }
+  }
+
+  lockSubmit.addEventListener('click', () => {
+    if (isSetupMode) handleSetup(); else handleUnlock();
+  });
+  passInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !isSetupMode) handleUnlock(); });
+  passConfirmInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleSetup(); });
+
+  deleteVaultBtn.addEventListener('click', () => {
+    showModal(
+      `delete "${currentVaultLabel}"?`,
+      'this permanently deletes this notebook\u2019s entries, versions, and settings from this browser. this cannot be undone. export a backup first if you want to keep anything. other notebooks are not affected.',
+      [
+        { label: 'cancel' },
+        { label: 'delete this notebook', danger: true, onClick: async () => {
+          const idToDelete = currentVaultId;
+          await unregisterVault(idToDelete);
+          if (db) db.close();
+          await new Promise((resolve, reject) => {
+            const req = indexedDB.deleteDatabase(DB_NAME_PREFIX + idToDelete);
+            req.onsuccess = () => resolve();
+            req.onerror = () => reject(req.error);
+            req.onblocked = () => resolve(); // proceed anyway; it'll finish once unblocked
+          });
+          await showPicker();
+        }}
+      ]
+    );
+  });
+
+  function enterApp() {
+    lockScreen.classList.add('hidden');
+    pickerScreen.classList.add('hidden');
+    app.classList.add('active');
+    appTitle.textContent = currentVaultLabel || 'ledger';
+    passInput.value = '';
+    passConfirmInput.value = '';
+    renderList();
+    renderExportStatus();
+    startAutoLockTracking();
+  }
+
+  async function lockApp() {
+    stopAutoLockTracking();
+    clearTimeout(autosaveTimer);
+    if (currentEntryId) {
+      try { await flushSave(true); } catch (e) { console.error('flush on lock failed', e); }
+    }
+    cryptoKey = null;
+    entries = [];
+    currentEntryId = null;
+    currentView = 'active';
+    tabActive.classList.add('active');
+    tabArchived.classList.remove('active');
+    tabTrash.classList.remove('active');
+    searchScopeRow.classList.remove('hidden');
+    emptyTrashBtn.classList.add('hidden');
+    if (db) { db.close(); db = null; }
+    showPicker();
+  }
+
+  lockBtn.addEventListener('click', lockApp);
+
+  // ---------- auto-lock ----------
+  let autoLockTimer = null;
+  const AUTO_LOCK_ACTIVITY_EVENTS = ['mousedown', 'keydown', 'touchstart', 'scroll'];
+
+  function getAutoLockMinutes() {
+    const raw = localStorage.getItem(AUTO_LOCK_STORAGE_KEY);
+    const n = raw === null ? 15 : parseInt(raw, 10);
+    return Number.isFinite(n) ? n : 15;
+  }
+
+  function setAutoLockMinutes(n) {
+    localStorage.setItem(AUTO_LOCK_STORAGE_KEY, String(n));
+  }
+
+  function resetAutoLockTimer() {
+    clearTimeout(autoLockTimer);
+    const minutes = getAutoLockMinutes();
+    if (minutes <= 0) return; // 'never'
+    autoLockTimer = setTimeout(() => {
+      if (app.classList.contains('active')) lockApp();
+    }, minutes * 60 * 1000);
+  }
+
+  function startAutoLockTracking() {
+    AUTO_LOCK_ACTIVITY_EVENTS.forEach(ev => document.addEventListener(ev, resetAutoLockTimer));
+    resetAutoLockTimer();
+  }
+
+  function stopAutoLockTracking() {
+    clearTimeout(autoLockTimer);
+    AUTO_LOCK_ACTIVITY_EVENTS.forEach(ev => document.removeEventListener(ev, resetAutoLockTimer));
+  }
+
+  autoLockSelect.addEventListener('change', () => {
+    setAutoLockMinutes(parseInt(autoLockSelect.value, 10));
+    resetAutoLockTimer();
+  });
+
+  // ---------- list rendering ----------
+  function formatDate(ts) {
+    const d = new Date(ts);
+    return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) +
+      ' · ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  }
+
+  async function renderExportStatus() {
+    const record = await idbGet(STORE_META, 'lastExport');
+    if (!record || !record.value) {
+      exportStatus.textContent = 'never exported';
+      exportStatus.classList.add('stale');
+      return;
+    }
+    const days = Math.floor((Date.now() - record.value) / (1000 * 60 * 60 * 24));
+    if (days <= 0) {
+      exportStatus.textContent = 'exported today';
+      exportStatus.classList.remove('stale');
+    } else if (days === 1) {
+      exportStatus.textContent = 'exported 1 day ago';
+      exportStatus.classList.toggle('stale', days >= STALE_EXPORT_DAYS);
+    } else {
+      exportStatus.textContent = `exported ${days} days ago`;
+      exportStatus.classList.toggle('stale', days >= STALE_EXPORT_DAYS);
+    }
+  }
+
+  function entryStatus(e) {
+    if (e.deletedAt) return 'trash';
+    if (e.archivedAt) return 'archived';
+    return 'active';
+  }
+
+  function updateTabCounts() {
+    const counts = { active: 0, archived: 0, trash: 0 };
+    entries.forEach(e => counts[entryStatus(e)]++);
+    countActive.textContent = counts.active ? ` (${counts.active})` : '';
+    countArchived.textContent = counts.archived ? ` (${counts.archived})` : '';
+    countTrash.textContent = counts.trash ? ` (${counts.trash})` : '';
+  }
+
+  function switchView(view) {
+    currentView = view;
+    [tabActive, tabArchived, tabTrash].forEach(tab => tab.classList.remove('active'));
+    ({ active: tabActive, archived: tabArchived, trash: tabTrash })[view].classList.add('active');
+    searchScopeRow.classList.toggle('hidden', view !== 'active');
+    emptyTrashBtn.classList.toggle('hidden', view !== 'trash');
+    renderList();
+  }
+
+  tabActive.addEventListener('click', () => switchView('active'));
+  tabArchived.addEventListener('click', () => switchView('archived'));
+  tabTrash.addEventListener('click', () => switchView('trash'));
+  includeArchivedSearch.addEventListener('change', renderList);
+
+  function renderList() {
+    updateTabCounts();
+    const query = searchInput.value.trim().toLowerCase();
+    const includeArchived = includeArchivedSearch.checked;
+
+    let scoped;
+    if (query && currentView === 'active') {
+      // searching from the active view can optionally reach into archived too, but never trash
+      scoped = entries.filter(e => {
+        const status = entryStatus(e);
+        return status === 'active' || (includeArchived && status === 'archived');
+      });
+    } else {
+      scoped = entries.filter(e => entryStatus(e) === currentView);
+    }
+
+    const sorted = [...scoped].sort((a, b) => b.updatedAt - a.updatedAt);
+    const filtered = query
+      ? sorted.filter(e =>
+          (e.title || 'untitled entry').toLowerCase().includes(query) ||
+          (e.body || '').toLowerCase().includes(query) ||
+          (e.tags || []).some(t => t.toLowerCase().includes(query))
+        )
+      : sorted;
+
+    entryList.innerHTML = '';
+
+    if (filtered.length === 0) {
+      emptyState.classList.remove('hidden');
+      const title = emptyState.querySelector('.empty-state-title');
+      const desc = emptyState.querySelector('div:last-child');
+      if (query) {
+        title.textContent = 'no matches';
+        desc.textContent = 'try a different search term.';
+      } else if (currentView === 'archived') {
+        title.textContent = 'nothing archived';
+        desc.textContent = 'archived entries show up here.';
+      } else if (currentView === 'trash') {
+        title.textContent = 'trash is empty';
+        desc.textContent = 'deleted entries show up here until you empty the trash.';
+      } else {
+        title.textContent = 'nothing written yet';
+        desc.textContent = 'start your first entry above.';
+      }
+      return;
+    }
+    emptyState.classList.add('hidden');
+
+    filtered.forEach(entry => {
+      const row = document.createElement('div');
+      row.className = 'entry-row';
+      row.onclick = () => openEntry(entry.id);
+
+      const top = document.createElement('div');
+      top.className = 'entry-row-top';
+
+      const title = document.createElement('div');
+      title.className = 'entry-row-title';
+      title.textContent = entry.title || 'untitled entry';
+
+      const date = document.createElement('div');
+      date.className = 'entry-row-date';
+      date.textContent = formatDate(entry.updatedAt);
+
+      const menuTrigger = document.createElement('button');
+      menuTrigger.className = 'row-menu-trigger';
+      menuTrigger.textContent = '⋯';
+      menuTrigger.setAttribute('aria-label', 'entry actions');
+      menuTrigger.onclick = (ev) => {
+        ev.stopPropagation();
+        toggleRowMenu(entry.id, menuTrigger, top);
+      };
+
+      top.appendChild(title);
+      top.appendChild(date);
+      top.appendChild(menuTrigger);
+      row.appendChild(top);
+
+      if (entry.body) {
+        const preview = document.createElement('div');
+        preview.className = 'entry-row-preview';
+        preview.textContent = entry.body.slice(0, 140);
+        row.appendChild(preview);
+      }
+
+      if (entry.tags && entry.tags.length) {
+        const metaRow = document.createElement('div');
+        metaRow.className = 'entry-row-meta';
+        entry.tags.forEach(t => {
+          const chip = document.createElement('span');
+          chip.className = 'meta-chip meta-chip-clickable';
+          chip.textContent = t;
+          chip.title = `filter by "${t}"`;
+          chip.onclick = (ev) => {
+            ev.stopPropagation();
+            searchInput.value = t;
+            if (currentView !== 'active') switchView('active');
+            else renderList();
+          };
+          metaRow.appendChild(chip);
+        });
+        row.appendChild(metaRow);
+      }
+
+      entryList.appendChild(row);
+    });
+  }
+
+  // ---------- per-row overflow menu ----------
+  let openRowMenu = null; // { menuEl, triggerEl }
+
+  function closeRowMenu() {
+    if (openRowMenu) {
+      openRowMenu.menuEl.remove();
+      openRowMenu.triggerEl.classList.remove('menu-open');
+      openRowMenu = null;
+    }
+  }
+
+  function rowMenuItem(label, danger, onClick) {
+    const btn = document.createElement('button');
+    btn.className = 'row-menu-item' + (danger ? ' danger' : '');
+    btn.textContent = label;
+    btn.onclick = (ev) => {
+      ev.stopPropagation();
+      closeRowMenu();
+      onClick();
+    };
+    return btn;
+  }
+
+  function toggleRowMenu(entryId, triggerEl, anchorEl) {
+    const alreadyOpenForThis = openRowMenu && openRowMenu.triggerEl === triggerEl;
+    closeRowMenu();
+    if (alreadyOpenForThis) return;
+
+    const entry = entries.find(e => e.id === entryId);
+    if (!entry) return;
+    const status = entryStatus(entry);
+
+    const menu = document.createElement('div');
+    menu.className = 'row-menu';
+    menu.onclick = (ev) => ev.stopPropagation();
+
+    if (status === 'active') {
+      menu.appendChild(rowMenuItem('archive', false, () => confirmArchive(entryId)));
+      menu.appendChild(rowMenuItem('move to trash', false, () => trashEntry(entryId)));
+    } else if (status === 'archived') {
+      menu.appendChild(rowMenuItem('unarchive', false, () => unarchiveEntry(entryId)));
+      menu.appendChild(rowMenuItem('move to trash', false, () => trashEntry(entryId)));
+    } else if (status === 'trash') {
+      menu.appendChild(rowMenuItem('restore', false, () => restoreEntry(entryId)));
+      menu.appendChild(rowMenuItem('delete forever', true, () => confirmDeleteForever(entryId)));
+    }
+
+    anchorEl.appendChild(menu);
+    triggerEl.classList.add('menu-open');
+    openRowMenu = { menuEl: menu, triggerEl };
+  }
+
+  function confirmArchive(id) {
+    showModal(
+      'archive this entry?',
+      'it will move to the archived list. you can unarchive it later.',
+      [
+        { label: 'cancel' },
+        { label: 'archive', onClick: () => archiveEntry(id) }
+      ]
+    );
+  }
+
+  document.addEventListener('click', closeRowMenu);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeRowMenu();
+  });
+
+  searchInput.addEventListener('input', renderList);
+
+  // ---------- editor ----------
+  async function openEntry(id) {
+    if (currentEntryId && currentEntryId !== id) {
+      await flushSave(true);
+    }
+    clearTimeout(autosaveTimer);
+    currentEntryId = id;
+    const entry = entries.find(e => e.id === id);
+    entryTitle.value = entry.title || '';
+    entryTags.value = (entry.tags || []).join(', ');
+    entryBody.value = entry.body || '';
+    saveStatus.textContent = '';
+    refreshEditorActionButtons();
+    showEditor();
+  }
+
+  async function newEntry() {
+    if (currentEntryId) {
+      await flushSave(true);
+    }
+    clearTimeout(autosaveTimer);
+    const now = Date.now();
+    const entry = { id: genId(), title: '', body: '', tags: [], createdAt: now, updatedAt: now, archivedAt: null, deletedAt: null };
+    entries.push(entry);
+    currentEntryId = entry.id;
+    entryTitle.value = '';
+    entryTags.value = '';
+    entryBody.value = '';
+    saveStatus.textContent = '';
+    refreshEditorActionButtons();
+    showEditor();
+    setTimeout(() => entryTitle.focus(), 50);
+  }
+
+  function showEditor() {
+    listView.classList.add('hidden');
+    historyView.classList.add('hidden');
+    editorView.classList.remove('hidden');
+  }
+
+  function showList() {
+    editorView.classList.add('hidden');
+    settingsView.classList.add('hidden');
+    historyView.classList.add('hidden');
+    listView.classList.remove('hidden');
+    renderList();
+  }
+
+  async function showSettings() {
+    listView.classList.add('hidden');
+    editorView.classList.add('hidden');
+    historyView.classList.add('hidden');
+    settingsView.classList.remove('hidden');
+    passChangeError.textContent = '';
+    passChangeSuccess.textContent = '';
+    currentPassInput.value = '';
+    newPassInput.value = '';
+    newPassConfirmInput.value = '';
+    const limit = await getHistoryLimit();
+    historyLimitInput.value = limit;
+    historyLimitWarning.textContent = '';
+    autoLockSelect.value = String(getAutoLockMinutes());
+    await renderSettingsStats();
+  }
+
+  async function showHistory() {
+    if (!currentEntryId) return;
+    await flushSave(true);
+    editorView.classList.add('hidden');
+    historyView.classList.remove('hidden');
+    await renderHistoryList();
+  }
+
+  async function renderHistoryList() {
+    const versions = await getVersionHistory(currentEntryId);
+    historyList.innerHTML = '';
+    if (versions.length === 0) {
+      historyEmptyState.classList.remove('hidden');
+      return;
+    }
+    historyEmptyState.classList.add('hidden');
+
+    versions.forEach(v => {
+      const row = document.createElement('div');
+      row.className = 'history-row';
+
+      const top = document.createElement('div');
+      top.className = 'history-row-top';
+      const date = document.createElement('div');
+      date.className = 'history-row-date';
+      date.textContent = formatDate(v.savedAt);
+      top.appendChild(date);
+      row.appendChild(top);
+
+      const title = document.createElement('div');
+      title.className = 'history-row-title';
+      title.textContent = v.title || 'untitled entry';
+      row.appendChild(title);
+
+      if (v.body) {
+        const preview = document.createElement('div');
+        preview.className = 'history-row-preview';
+        preview.textContent = v.body.slice(0, 220);
+        row.appendChild(preview);
+      }
+
+      const actions = document.createElement('div');
+      actions.className = 'entry-row-actions';
+      const restoreBtn = document.createElement('button');
+      restoreBtn.className = 'entry-row-action-btn';
+      restoreBtn.textContent = 'restore this version';
+      restoreBtn.onclick = () => confirmRestoreVersion(v);
+      actions.appendChild(restoreBtn);
+      row.appendChild(actions);
+
+      historyList.appendChild(row);
+    });
+  }
+
+  function confirmRestoreVersion(version) {
+    showModal(
+      'restore this version?',
+      'your current draft will be saved as a version too, so you can undo this if needed.',
+      [
+        { label: 'cancel' },
+        { label: 'restore', onClick: async () => {
+          const entry = entries.find(e => e.id === currentEntryId);
+          if (!entry) return;
+          entryTitle.value = version.title || '';
+          entryTags.value = (version.tags || []).join(', ');
+          entryBody.value = version.body || '';
+          await flushSave(true); // this snapshots the current draft before overwriting
+          showEditor();
+        }}
+      ]
+    );
+  }
+
+  historyBtn.addEventListener('click', showHistory);
+  historyBackBtn.addEventListener('click', showEditor);
+
+  // ---------- duplicate entry ----------
+  duplicateEntryBtn.addEventListener('click', async () => {
+    if (!currentEntryId) return;
+    await flushSave(true);
+    const source = entries.find(e => e.id === currentEntryId);
+    if (!source) return;
+
+    const now = Date.now();
+    const copy = {
+      id: genId(),
+      title: `copy of ${source.title || 'untitled entry'}`,
+      body: source.body,
+      tags: [...(source.tags || [])],
+      createdAt: now,
+      updatedAt: now,
+      archivedAt: null,
+      deletedAt: null
+    };
+    entries.push(copy);
+    const payload = await encryptJson({
+      title: copy.title, body: copy.body, tags: copy.tags,
+      createdAt: copy.createdAt, updatedAt: copy.updatedAt,
+      archivedAt: null, deletedAt: null
+    });
+    await idbPut(STORE_ENTRIES, { id: copy.id, payload });
+    await openEntry(copy.id);
+  });
+
+  // ---------- export single entry as plain text/markdown ----------
+  // this is the one deliberate way plaintext leaves the encrypted vault
+  // (aside from copy-paste while unlocked), so it's confirmed rather than instant.
+  function downloadEntryAs(entry, format) {
+    const dateStr = new Date(entry.updatedAt).toISOString();
+    const title = entry.title || 'untitled entry';
+    const tags = (entry.tags && entry.tags.length) ? entry.tags.join(', ') : '';
+    const safeTitle = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'untitled-entry';
+
+    let content, mimeType, ext;
+    if (format === 'md') {
+      const front = `---\ntitle: "${title.replace(/"/g, '\\"')}"\ndate: ${dateStr}\ntags: ${tags}\n---\n\n`;
+      content = front + (entry.body || '');
+      mimeType = 'text/markdown';
+      ext = 'md';
+    } else {
+      const header = `${title}\n${dateStr}${tags ? `\ntags: ${tags}` : ''}\n\n`;
+      content = header + (entry.body || '');
+      mimeType = 'text/plain';
+      ext = 'txt';
+    }
+
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${safeTitle}.${ext}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  exportEntryBtn.addEventListener('click', async () => {
+    if (!currentEntryId) return;
+    await flushSave(true);
+    const entry = entries.find(e => e.id === currentEntryId);
+    if (!entry) return;
+
+    showModal(
+      'export this entry as a text file?',
+      'this saves an unencrypted copy of this one entry to your downloads, for sharing or use elsewhere. the rest of your notebook stays encrypted; only this entry leaves as plain text.',
+      [
+        { label: 'cancel' },
+        { label: '.txt', onClick: () => downloadEntryAs(entry, 'txt') },
+        { label: '.md', onClick: () => downloadEntryAs(entry, 'md') }
+      ]
+    );
+  });
+
+  async function renderSettingsStats() {
+    statEntryCount.textContent = entries.length;
+    const rows = await idbGetAll(STORE_ENTRIES);
+    const versionRows = await idbGetAll(STORE_VERSIONS);
+    statVersionCount.textContent = versionRows.length;
+    const bytes = rows.reduce((sum, r) => sum + JSON.stringify(r).length, 0) +
+      versionRows.reduce((sum, r) => sum + JSON.stringify(r).length, 0);
+    statSize.textContent = bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`;
+    const lastExportRecord = await idbGet(STORE_META, 'lastExport');
+    statLastExport.textContent = lastExportRecord && lastExportRecord.value
+      ? new Date(lastExportRecord.value).toLocaleString()
+      : 'never';
+
+    const kdfRecord = await idbGet(STORE_META, 'kdf');
+    const kdf = kdfRecord ? kdfRecord.value : KDF_PBKDF2;
+    statKdf.textContent = kdf === KDF_ARGON2ID
+      ? 'Argon2id, 64 MB memory, 3 iterations'
+      : 'PBKDF2-SHA256, 650,000 iterations (legacy — change your passphrase to upgrade to Argon2id)';
+
+    const total = sessionDecryptStats.verified + sessionDecryptStats.failed;
+    if (total === 0) {
+      statVerified.textContent = 'n/a, no entries yet';
+      cryptoStatusNote.textContent = 'AES-GCM includes built-in tamper detection: an entry only decrypts if both the key and ciphertext are intact. "verified" below reflects entries that actually decrypted successfully on this unlock, not just a stored count.';
+    } else if (sessionDecryptStats.failed === 0) {
+      statVerified.textContent = `${sessionDecryptStats.verified} / ${total}`;
+      cryptoStatusNote.textContent = 'every entry decrypted and passed its AES-GCM authentication check on this unlock. that means the ciphertext was not altered and the key used was correct.';
+    } else {
+      statVerified.textContent = `${sessionDecryptStats.verified} / ${total} (${sessionDecryptStats.failed} failed)`;
+      cryptoStatusNote.textContent = `${sessionDecryptStats.failed} entr${sessionDecryptStats.failed === 1 ? 'y' : 'ies'} failed decryption on unlock, meaning that entry's ciphertext is corrupted or was written with a different key. it still exists in storage but could not be read. check the browser console for the affected entry id.`;
+    }
+  }
+
+  settingsBtn.addEventListener('click', showSettings);
+  settingsBackBtn.addEventListener('click', showList);
+
+  saveHistoryLimitBtn.addEventListener('click', async () => {
+    const n = parseInt(historyLimitInput.value, 10);
+    historyLimitWarning.textContent = '';
+    historyLimitWarning.classList.remove('settings-error');
+    historyLimitWarning.classList.add('settings-success');
+    if (!Number.isInteger(n) || n < 1) {
+      historyLimitWarning.classList.remove('settings-success');
+      historyLimitWarning.classList.add('settings-error');
+      historyLimitWarning.textContent = 'enter a whole number of at least 1.';
+      return;
+    }
+    await setHistoryLimit(n);
+    if (n > MAX_RECOMMENDED_HISTORY_LIMIT) {
+      historyLimitWarning.classList.remove('settings-success');
+      historyLimitWarning.classList.add('settings-error');
+      historyLimitWarning.textContent = `saved. keeping more than ${MAX_RECOMMENDED_HISTORY_LIMIT} versions per entry isn't recommended, since it multiplies storage use per entry with limited practical benefit.`;
+    } else {
+      historyLimitWarning.textContent = 'saved.';
+    }
+  });
+
+  newEntryBtn.addEventListener('click', newEntry);
+  backBtn.addEventListener('click', () => { flushSave(true); showList(); });
+
+  function scheduleSave() {
+    saveStatus.textContent = 'saving…';
+    clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(() => flushSave(false), 500);
+  }
+
+  async function flushSave(immediate) {
+    if (!currentEntryId) return;
+    clearTimeout(autosaveTimer);
+    const entry = entries.find(e => e.id === currentEntryId);
+    if (!entry) return;
+
+    const newTitle = entryTitle.value;
+    const newBody = entryBody.value;
+    const newTags = entryTags.value.split(',').map(t => t.trim()).filter(Boolean);
+
+    // don't persist fully empty entries
+    if (!newTitle && !newBody && newTags.length === 0) {
+      saveStatus.textContent = '';
+      return;
+    }
+
+    // snapshot whatever is currently stored (the pre-edit version) into history
+    // before it gets overwritten, but only if the content actually changed and
+    // the entry has been saved at least once before (nothing to snapshot otherwise).
+    try {
+      const existingRow = await idbGet(STORE_ENTRIES, entry.id);
+      if (existingRow) {
+        const existing = await decryptJson(existingRow.payload);
+        const contentChanged = existing.title !== newTitle || existing.body !== newBody ||
+          JSON.stringify(existing.tags || []) !== JSON.stringify(newTags);
+        if (contentChanged) {
+          await snapshotVersion(entry.id, existing);
+          await pruneVersionHistory(entry.id);
+        }
+      }
+    } catch (e) {
+      console.error('version snapshot failed, continuing with save', e);
+    }
+
+    entry.title = newTitle;
+    entry.body = newBody;
+    entry.tags = newTags;
+    entry.updatedAt = Date.now();
+
+    const payload = await encryptJson({
+      title: entry.title, body: entry.body, tags: entry.tags,
+      createdAt: entry.createdAt, updatedAt: entry.updatedAt,
+      archivedAt: entry.archivedAt || null, deletedAt: entry.deletedAt || null
+    });
+    await idbPut(STORE_ENTRIES, { id: entry.id, payload });
+    saveStatus.textContent = 'saved ' + new Date(entry.updatedAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  }
+
+  [entryTitle, entryTags, entryBody].forEach(el => {
+    el.addEventListener('input', scheduleSave);
+  });
+
+  // ---------- version history ----------
+  async function getHistoryLimit() {
+    const record = await idbGet(STORE_META, 'historyLimit');
+    return record && typeof record.value === 'number' ? record.value : DEFAULT_HISTORY_LIMIT;
+  }
+
+  async function setHistoryLimit(n) {
+    await idbPut(STORE_META, { key: 'historyLimit', value: n });
+  }
+
+  async function snapshotVersion(entryId, versionContent) {
+    const payload = await encryptJson({
+      title: versionContent.title, body: versionContent.body, tags: versionContent.tags || []
+    });
+    const versionId = 'v_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+    await idbPut(STORE_VERSIONS, {
+      id: versionId,
+      entryId: entryId,
+      savedAt: versionContent.updatedAt || Date.now(),
+      payload
+    });
+  }
+
+  async function pruneVersionHistory(entryId) {
+    const limit = await getHistoryLimit();
+    const versions = await idbGetAllByIndex(STORE_VERSIONS, 'entryId', entryId);
+    if (versions.length <= limit) return;
+    const sorted = versions.sort((a, b) => b.savedAt - a.savedAt);
+    const toRemove = sorted.slice(limit);
+    for (const v of toRemove) await idbDelete(STORE_VERSIONS, v.id);
+  }
+
+  async function getVersionHistory(entryId) {
+    const versions = await idbGetAllByIndex(STORE_VERSIONS, 'entryId', entryId);
+    const decrypted = [];
+    for (const v of versions) {
+      try {
+        const content = await decryptJson(v.payload);
+        decrypted.push({ id: v.id, savedAt: v.savedAt, title: content.title, body: content.body, tags: content.tags || [] });
+      } catch (e) {
+        console.error('failed to decrypt version', v.id, e);
+      }
+    }
+    return decrypted.sort((a, b) => b.savedAt - a.savedAt);
+  }
+
+  async function deleteAllVersionsForEntry(entryId) {
+    const versions = await idbGetAllByIndex(STORE_VERSIONS, 'entryId', entryId);
+    for (const v of versions) await idbDelete(STORE_VERSIONS, v.id);
+  }
+
+  // ---------- archive / trash status changes ----------
+  async function persistEntryStatus(entry) {
+    // status changes (archive/trash/restore) don't touch title/body/tags,
+    // so re-encrypt with whatever is already stored rather than requiring
+    // the entry to be open in the editor.
+    const payload = await encryptJson({
+      title: entry.title, body: entry.body, tags: entry.tags,
+      createdAt: entry.createdAt, updatedAt: entry.updatedAt,
+      archivedAt: entry.archivedAt || null, deletedAt: entry.deletedAt || null
+    });
+    await idbPut(STORE_ENTRIES, { id: entry.id, payload });
+  }
+
+  async function archiveEntry(id) {
+    const entry = entries.find(e => e.id === id);
+    if (!entry) return;
+    entry.archivedAt = Date.now();
+    entry.updatedAt = Date.now();
+    await persistEntryStatus(entry);
+    renderList();
+  }
+
+  async function unarchiveEntry(id) {
+    const entry = entries.find(e => e.id === id);
+    if (!entry) return;
+    entry.archivedAt = null;
+    entry.updatedAt = Date.now();
+    await persistEntryStatus(entry);
+    renderList();
+  }
+
+  async function trashEntry(id) {
+    const entry = entries.find(e => e.id === id);
+    if (!entry) return;
+    entry.deletedAt = Date.now();
+    entry.archivedAt = null; // trash takes priority; clear archive state
+    entry.updatedAt = Date.now();
+    await persistEntryStatus(entry);
+    renderList();
+  }
+
+  async function restoreEntry(id) {
+    const entry = entries.find(e => e.id === id);
+    if (!entry) return;
+    entry.deletedAt = null;
+    entry.updatedAt = Date.now();
+    await persistEntryStatus(entry);
+    renderList();
+  }
+
+  function confirmDeleteForever(id) {
+    const entry = entries.find(e => e.id === id);
+    if (!entry) return;
+    showModal(
+      'delete this entry forever?',
+      'this permanently removes the entry from local storage. it cannot be recovered.',
+      [
+        { label: 'cancel' },
+        { label: 'delete forever', danger: true, onClick: async () => {
+          await idbDelete(STORE_ENTRIES, id);
+          await deleteAllVersionsForEntry(id);
+          entries = entries.filter(e => e.id !== id);
+          if (currentEntryId === id) currentEntryId = null;
+          if (!editorView.classList.contains('hidden') && currentEntryId === null) showList();
+          else renderList();
+        }}
+      ]
+    );
+  }
+
+  emptyTrashBtn.addEventListener('click', () => {
+    const trashCount = entries.filter(e => entryStatus(e) === 'trash').length;
+    if (trashCount === 0) return;
+    showModal(
+      'empty trash?',
+      `this permanently deletes ${trashCount} entr${trashCount === 1 ? 'y' : 'ies'} from local storage. this cannot be undone.`,
+      [
+        { label: 'cancel' },
+        { label: 'empty trash', danger: true, onClick: async () => {
+          const toDelete = entries.filter(e => entryStatus(e) === 'trash');
+          for (const e of toDelete) {
+            await idbDelete(STORE_ENTRIES, e.id);
+            await deleteAllVersionsForEntry(e.id);
+          }
+          entries = entries.filter(e => entryStatus(e) !== 'trash');
+          renderList();
+        }}
+      ]
+    );
+  });
+
+  // editor-view action buttons: reflect whichever entry is currently open
+  function refreshEditorActionButtons() {
+    const entry = entries.find(e => e.id === currentEntryId);
+    if (!entry) return;
+    const status = entryStatus(entry);
+    archiveEntryBtn.classList.toggle('hidden', status !== 'active');
+    unarchiveEntryBtn.classList.toggle('hidden', status !== 'archived');
+    deleteEntryBtn.classList.toggle('hidden', status === 'trash');
+    restoreEntryBtn.classList.toggle('hidden', status !== 'trash');
+    deleteForeverBtn.classList.toggle('hidden', status !== 'trash');
+  }
+
+  archiveEntryBtn.addEventListener('click', async () => {
+    if (!currentEntryId) return;
+    await flushSave(true);
+    await archiveEntry(currentEntryId);
+    refreshEditorActionButtons();
+  });
+
+  unarchiveEntryBtn.addEventListener('click', async () => {
+    if (!currentEntryId) return;
+    await unarchiveEntry(currentEntryId);
+    refreshEditorActionButtons();
+  });
+
+  restoreEntryBtn.addEventListener('click', async () => {
+    if (!currentEntryId) return;
+    await restoreEntry(currentEntryId);
+    refreshEditorActionButtons();
+  });
+
+  deleteForeverBtn.addEventListener('click', () => {
+    if (!currentEntryId) return;
+    confirmDeleteForever(currentEntryId);
+  });
+
+  deleteEntryBtn.addEventListener('click', () => {
+    if (!currentEntryId) return;
+    showModal(
+      'move this entry to trash?',
+      'it will be moved to trash and can be restored later, or permanently deleted from the trash view.',
+      [
+        { label: 'cancel' },
+        { label: 'move to trash', danger: true, onClick: async () => {
+          await trashEntry(currentEntryId);
+          currentEntryId = null;
+          showList();
+        }}
+      ]
+    );
+  });
+
+  // ---------- change passphrase ----------
+  changePassBtn.addEventListener('click', async () => {
+    passChangeError.textContent = '';
+    passChangeSuccess.textContent = '';
+
+    const current = currentPassInput.value;
+    const next = newPassInput.value;
+    const nextConfirm = newPassConfirmInput.value;
+
+    if (!current) { passChangeError.textContent = 'enter your current passphrase.'; return; }
+    if (next.length < 8) { passChangeError.textContent = 'new passphrase must be at least 8 characters.'; return; }
+    if (next !== nextConfirm) { passChangeError.textContent = 'new passphrases do not match.'; return; }
+
+    changePassBtn.disabled = true;
+    changePassBtn.textContent = 'verifying…';
+
+    try {
+      // verify current passphrase against the currently active key material,
+      // using whichever KDF this vault was actually set up with
+      const saltRecord = await idbGet(STORE_META, 'salt');
+      const verifyRecord = await idbGet(STORE_META, 'verify');
+      const kdfRecord = await idbGet(STORE_META, 'kdf');
+      const currentKdf = kdfRecord ? kdfRecord.value : KDF_PBKDF2;
+
+      let verifyProgressTimer = null;
+      if (currentKdf === KDF_ARGON2ID) {
+        const startedAt = Date.now();
+        verifyProgressTimer = setInterval(() => {
+          const secs = Math.floor((Date.now() - startedAt) / 1000);
+          changePassBtn.textContent = `verifying… (${secs}s)`;
+        }, 500);
+      }
+      let currentKeyCheck;
+      try {
+        currentKeyCheck = await deriveKeyForVault(current, saltRecord.value, currentKdf);
+      } finally {
+        if (verifyProgressTimer) clearInterval(verifyProgressTimer);
+      }
+
+      const savedKey = cryptoKey;
+      cryptoKey = currentKeyCheck;
+      try {
+        await decryptJson(verifyRecord.value);
+      } catch (e) {
+        cryptoKey = savedKey;
+        passChangeError.textContent = 'current passphrase is incorrect.';
+        changePassBtn.disabled = false;
+        changePassBtn.textContent = 'change passphrase';
+        return;
+      }
+
+      changePassBtn.textContent = currentKdf === KDF_PBKDF2 ? 'upgrading encryption and re-encrypting…' : 're-encrypting…';
+
+      // Step 1: derive the new key (always upgrading to the current default
+      // KDF, Argon2id, even if the vault started on PBKDF2), then
+      // decrypt+re-encrypt every entry and version, writing each one into
+      // STAGING stores (never touching the live stores yet). If the tab
+      // dies anywhere in this loop, the live vault is completely untouched
+      // and still fully readable under the OLD passphrase — nothing is lost.
+      const newSalt = randomSaltB64();
+      const newKdf = CURRENT_DEFAULT_KDF;
+      const newKey = await deriveKeyForVault(next, newSalt, newKdf);
+
+      await idbClearAll(STORE_STAGING_ENTRIES);
+      await idbClearAll(STORE_STAGING_VERSIONS);
+
+      const rows = await idbGetAll(STORE_ENTRIES);
+      const versionRows = await idbGetAll(STORE_VERSIONS);
+      let stagedEntryCount = 0;
+
+      cryptoKey = currentKeyCheck; // ensure decrypts use verified current key
+      for (const row of rows) {
+        const decrypted = await decryptJson(row.payload);
+        cryptoKey = newKey;
+        const payload = await encryptJson(decrypted);
+        await idbPut(STORE_STAGING_ENTRIES, { id: row.id, payload });
+        stagedEntryCount++;
+        cryptoKey = currentKeyCheck;
+      }
+      for (const row of versionRows) {
+        const decrypted = await decryptJson(row.payload);
+        cryptoKey = newKey;
+        const payload = await encryptJson(decrypted);
+        await idbPut(STORE_STAGING_VERSIONS, { id: row.id, entryId: row.entryId, savedAt: row.savedAt, payload });
+        cryptoKey = currentKeyCheck;
+      }
+
+      cryptoKey = newKey;
+      const newVerify = await encryptJson({ check: 'ledger-ok' });
+      const newSaltVerifyPayload = { salt: newSalt, verify: newVerify, kdf: newKdf };
+
+      changePassBtn.textContent = 'finishing…';
+
+      // Step 2: flip a marker so that if the tab dies between here and the
+      // final swap, next unlock knows fully-staged new-key data exists and
+      // is safe to finish applying (rather than silently reading stale
+      // salt/verify against a half-migrated vault, which was the original bug).
+      await idbPut(STORE_META, { key: 'rekeyPending', value: newSaltVerifyPayload });
+
+      // Step 3: one short, atomic transaction that clears the live stores,
+      // copies the already-verified staged data in, commits the new
+      // salt/verify, and clears the pending marker — all or nothing.
+      await commitRekey(newSaltVerifyPayload);
+
+      cryptoKey = newKey;
+      currentPassInput.value = '';
+      newPassInput.value = '';
+      newPassConfirmInput.value = '';
+      sessionDecryptStats = { verified: stagedEntryCount, failed: 0 };
+      passChangeSuccess.textContent = 'passphrase changed. export a fresh backup, the old backup file no longer matches this passphrase.';
+      await renderSettingsStats();
+    } catch (e) {
+      passChangeError.textContent = 'something went wrong, passphrase was not changed: ' + e.message;
+    } finally {
+      changePassBtn.disabled = false;
+      changePassBtn.textContent = 'change passphrase';
+    }
+  });
+
+  // performs the final swap from staged (new-key) data to the live stores in
+  // a single IndexedDB transaction spanning all affected stores, so it is
+  // atomic: either every store ends up consistent, or (on failure) none of
+  // them are touched and the live vault remains exactly as it was.
+  function commitRekey(saltVerifyPayload) {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([STORE_ENTRIES, STORE_VERSIONS, STORE_STAGING_ENTRIES, STORE_STAGING_VERSIONS, STORE_META], 'readwrite');
+
+      tx.objectStore(STORE_ENTRIES).clear();
+      tx.objectStore(STORE_VERSIONS).clear();
+
+      const stagedEntriesReq = tx.objectStore(STORE_STAGING_ENTRIES).getAll();
+      const stagedVersionsReq = tx.objectStore(STORE_STAGING_VERSIONS).getAll();
+
+      stagedEntriesReq.onsuccess = () => {
+        for (const row of stagedEntriesReq.result) {
+          tx.objectStore(STORE_ENTRIES).put(row);
+        }
+      };
+      stagedVersionsReq.onsuccess = () => {
+        for (const row of stagedVersionsReq.result) {
+          tx.objectStore(STORE_VERSIONS).put(row);
+        }
+      };
+
+      tx.objectStore(STORE_META).put({ key: 'salt', value: saltVerifyPayload.salt });
+      tx.objectStore(STORE_META).put({ key: 'verify', value: saltVerifyPayload.verify });
+      tx.objectStore(STORE_META).put({ key: 'kdf', value: saltVerifyPayload.kdf });
+      tx.objectStore(STORE_META).delete('rekeyPending');
+      tx.objectStore(STORE_STAGING_ENTRIES).clear();
+      tx.objectStore(STORE_STAGING_VERSIONS).clear();
+
+      tx.oncomplete = () => resolve();
+      tx.onerror = (e) => reject(e.target.error);
+      tx.onabort = (e) => reject(e.target.error || new Error('rekey transaction aborted'));
+    });
+  }
+
+  // called right after opening a vault's DB, before unlock. if a previous
+  // passphrase change was interrupted after staging completed but before the
+  // final swap, the staged (fully re-encrypted, verified) data is still
+  // sitting safely in the staging stores and the live vault is untouched.
+  // this finishes that interrupted swap so the vault converges to a single
+  // consistent state rather than being stuck mid-migration.
+  async function recoverInterruptedRekey() {
+    const pending = await idbGet(STORE_META, 'rekeyPending');
+    if (!pending || !pending.value) return false;
+    try {
+      await commitRekey(pending.value);
+      console.warn('recovered an interrupted passphrase change on this vault.');
+      return true;
+    } catch (e) {
+      console.error('failed to recover an interrupted passphrase change; staged data left in place for next attempt', e);
+      return false;
+    }
+  }
+
+  // ---------- erase everything ----------
+  eraseAllBtn.addEventListener('click', () => {
+    showModal(
+      'erase this notebook\u2019s entries?',
+      'this permanently deletes every entry and version in this notebook. your passphrase stays the same. other notebooks are not affected. this cannot be undone. export a backup first if you want to keep anything.',
+      [
+        { label: 'cancel' },
+        { label: 'erase everything', danger: true, onClick: async () => {
+          await idbClearAll(STORE_ENTRIES);
+          await idbClearAll(STORE_VERSIONS);
+          entries = [];
+          await renderSettingsStats();
+          showModal('done', 'all entries have been erased.', [{ label: 'ok' }]);
+        }}
+      ]
+    );
+  });
+
+  // ---------- export / import ----------
+  exportBtn.addEventListener('click', async () => {
+    const saltRecord = await idbGet(STORE_META, 'salt');
+    const verifyRecord = await idbGet(STORE_META, 'verify');
+    const kdfRecord = await idbGet(STORE_META, 'kdf');
+    const rows = await idbGetAll(STORE_ENTRIES);
+    const versionRows = await idbGetAll(STORE_VERSIONS);
+    const historyLimitRecord = await idbGet(STORE_META, 'historyLimit');
+
+    const dump = {
+      app: 'ledger',
+      version: 3,
+      exportedAt: new Date().toISOString(),
+      label: currentVaultLabel,
+      salt: saltRecord.value,
+      verify: verifyRecord.value,
+      kdf: kdfRecord ? kdfRecord.value : KDF_PBKDF2,
+      entries: rows,
+      versions: versionRows,
+      historyLimit: historyLimitRecord ? historyLimitRecord.value : DEFAULT_HISTORY_LIMIT
+    };
+
+    const blob = new Blob([JSON.stringify(dump, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    const safeLabel = (currentVaultLabel || 'ledger').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    a.href = url;
+    a.download = `${safeLabel}-backup-${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    await idbPut(STORE_META, { key: 'lastExport', value: Date.now() });
+    renderExportStatus();
+    await renderSettingsStats();
+  });
+
+  importBtn.addEventListener('click', () => {
+    showModal(
+      'restore a backup into this notebook?',
+      'this replaces everything in this notebook with the contents of the backup file. entries not in the backup will be lost. to open a backup as a separate notebook instead, use "import a notebook" from the notebook picker. this cannot be undone.',
+      [
+        { label: 'cancel' },
+        { label: 'choose file…', onClick: () => triggerRestoreFile('replace-current') }
+      ]
+    );
+  });
+
+  // the picker screen's import always creates a brand new, independent vault
+  // from the backup file, never touching any existing notebook's data.
+  importVaultBtn.addEventListener('click', () => triggerRestoreFile('new-vault'));
+
+  function triggerRestoreFile(mode) {
+    restoreFileInput.dataset.mode = mode;
+    restoreFileInput.click();
+  }
+
+  restoreFileInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const mode = restoreFileInput.dataset.mode;
+
+    try {
+      const text = await file.text();
+      const dump = JSON.parse(text);
+      if (!dump || dump.app !== 'ledger' || !dump.salt || !dump.verify || !Array.isArray(dump.entries)) {
+        throw new Error('not a valid ledger backup file');
+      }
+      restoreFileInput.value = '';
+
+      if (mode === 'new-vault') {
+        const label = await showPrompt('name this notebook', 'this backup was labeled "' + (dump.label || 'unnamed') + '" when exported. you can rename it here.', 'e.g. "personal", "work"', dump.label || '');
+        if (!label) return;
+
+        const vaultId = genVaultId();
+        const newDb = await openDb(vaultId);
+        const putIn = (store, value) => new Promise((resolve, reject) => {
+          const tx = newDb.transaction(store, 'readwrite');
+          tx.objectStore(store).put(value);
+          tx.oncomplete = () => resolve();
+          tx.onerror = (ev) => reject(ev.target.error);
+        });
+        await putIn(STORE_META, { key: 'salt', value: dump.salt });
+        await putIn(STORE_META, { key: 'verify', value: dump.verify });
+        await putIn(STORE_META, { key: 'kdf', value: dump.kdf || KDF_PBKDF2 });
+        for (const row of dump.entries) await putIn(STORE_ENTRIES, row);
+        if (Array.isArray(dump.versions)) {
+          for (const row of dump.versions) await putIn(STORE_VERSIONS, row);
+        }
+        await putIn(STORE_META, { key: 'historyLimit', value: typeof dump.historyLimit === 'number' ? dump.historyLimit : DEFAULT_HISTORY_LIMIT });
+        newDb.close();
+
+        await registerVault(vaultId, label);
+        await showPicker();
+        showModal('notebook imported', `"${label}" has been added. select it and enter its passphrase to unlock it.`, [{ label: 'ok' }]);
+        return;
+      }
+
+      // mode === 'replace-current': restore into the vault that's currently open
+      await idbClearAll(STORE_ENTRIES);
+      await idbClearAll(STORE_META);
+      await idbClearAll(STORE_VERSIONS);
+      await idbClearAll(STORE_STAGING_ENTRIES);
+      await idbClearAll(STORE_STAGING_VERSIONS);
+      await idbPut(STORE_META, { key: 'salt', value: dump.salt });
+      await idbPut(STORE_META, { key: 'verify', value: dump.verify });
+      await idbPut(STORE_META, { key: 'kdf', value: dump.kdf || KDF_PBKDF2 });
+      for (const row of dump.entries) {
+        await idbPut(STORE_ENTRIES, row);
+      }
+      // versions and historyLimit are only present in backup format v2+;
+      // older backups simply won't have them, which is fine, treated as empty/default.
+      if (Array.isArray(dump.versions)) {
+        for (const row of dump.versions) {
+          await idbPut(STORE_VERSIONS, row);
+        }
+      }
+      await idbPut(STORE_META, { key: 'historyLimit', value: typeof dump.historyLimit === 'number' ? dump.historyLimit : DEFAULT_HISTORY_LIMIT });
+
+      // re-lock and force re-entry of passphrase, since restored data may use a different key
+      const vaultId = currentVaultId;
+      const label = currentVaultLabel;
+      await lockApp();
+      openVaultPassphraseScreen(vaultId, label);
+      lockNote.textContent = 'backup restored into this notebook. enter the passphrase used for that backup to unlock.';
+    } catch (err) {
+      restoreFileInput.value = '';
+      showModal('import failed', err.message || 'could not read this file as a ledger backup.', [{ label: 'ok' }]);
+    }
+  });
+
+  // ---------- keyboard shortcuts ----------
+  // only active once unlocked, and never while a modal is open, to avoid
+  // firing a shortcut mid-confirmation (e.g. locking while a delete prompt is up).
+  window.addEventListener('keydown', (e) => {
+    if (!app.classList.contains('active')) return;
+    if (!modalOverlay.classList.contains('hidden')) return;
+
+    const mod = e.metaKey || e.ctrlKey;
+    if (!mod) return;
+
+    // Cmd/Ctrl+Shift+L: lock immediately
+    if (e.shiftKey && e.key.toLowerCase() === 'l') {
+      e.preventDefault();
+      lockApp();
+      return;
+    }
+
+    // Cmd/Ctrl+N: new entry (only from the list view, not mid-edit of another entry)
+    if (!e.shiftKey && e.key.toLowerCase() === 'n') {
+      if (!editorView.classList.contains('hidden') || !settingsView.classList.contains('hidden')) return;
+      e.preventDefault();
+      newEntry();
+      return;
+    }
+
+    // Cmd/Ctrl+S: force an immediate save while editing
+    if (!e.shiftKey && e.key.toLowerCase() === 's') {
+      if (editorView.classList.contains('hidden')) return;
+      e.preventDefault();
+      flushSave(true);
+    }
+  });
+
+  // ---------- unsaved-changes guard ----------
+  // beforeunload cannot reliably wait on async work (IndexedDB writes, WebCrypto
+  // encryption are both promise-based), so this warns instead of silently
+  // "saving" on the way out, since a promised save that can't be guaranteed
+  // to finish is worse than an honest warning.
+  window.addEventListener('beforeunload', (e) => {
+    if (autosaveTimer) {
+      e.preventDefault();
+      e.returnValue = '';
+    }
+  });
+
+  // ---------- go ----------
+  init();
+})();
+</script>
+</body>
+</html>

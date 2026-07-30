@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Password Generator — EGRelay</title>
+<meta name="title" content="Password Generator — EGRelay">
+<meta name="description" content="Runs entirely in your browser. Nothing you generate is ever sent anywhere. Passphrase mode tries to load the full 7,776-word EFF list from jsdelivr on page load">
+<meta name="theme-color" content="#10131a">
+
+<!-- Open Graph / Facebook -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://phrasing0870.github.io/password-generator/">
+<meta property="og:title" content="Password Generator — EGRelay">
+<meta property="og:description" content="Runs entirely in your browser. Nothing you generate is ever sent anywhere. Passphrase mode tries to load the full 7,776-word EFF list from jsdelivr on page load">
+<meta property="og:site_name" content="EGRelay">
+
+<!-- Twitter -->
+<meta property="twitter:card" content="summary_large_image">
+<meta property="twitter:url" content="https://phrasing0870.github.io/password-generator/">
+<meta property="twitter:title" content="Password Generator — EGRelay">
+<meta property="twitter:description" content="Runs entirely in your browser. Nothing you generate is ever sent anywhere. Passphrase mode tries to load the full 7,776-word EFF list from jsdelivr on page load">
+
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="EGRelay home">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span>EG<span class="accent">Relay</span></span>
+    </a>
+
+    <nav class="site-nav" aria-label="Primary navigation">
+      <a href="/#tools">Tools</a>
+      <a href="/#principles">Principles</a>
+      <a href="https://github.com/phrasing0870">GitHub</a>
+    </nav>
+  </header>
+
+  <main class="tool-main">
+    <a class="back-link" href="/">&larr; All tools</a>
+
+    <div class="tool-masthead">
+      <p class="eyebrow mono">Client-side · No network required</p>
+      <h1>Password Generator</h1>
+      <p class="sub">Runs entirely in your browser using a CSPRNG. Nothing you generate is ever sent anywhere.</p>
+    </div>
+
+    <div class="tool-card-panel">
+      <div class="tabs">
+        <div class="tab active" data-mode="random">Random</div>
+        <div class="tab" data-mode="passphrase">Passphrase</div>
+      </div>
+
+      <div class="output">
+        <div id="result">Click generate</div>
+        <button class="pw-btn" id="copyBtn">Copy</button>
+      </div>
+
+      <div class="strength-bar"><div class="strength-fill" id="strengthFill"></div></div>
+      <div class="strength-label" id="strengthLabel"></div>
+
+      <!-- RANDOM PANEL -->
+      <div class="panel active" id="panel-random">
+        <div class="row" style="margin-top:20px;">
+          <label for="length">Length: <span id="lengthVal">16</span></label>
+          <input type="range" id="length" min="4" max="64" value="16">
+        </div>
+
+        <div class="checks">
+          <label><input type="checkbox" id="lower" checked> lowercase (a-z)</label>
+          <label><input type="checkbox" id="upper" checked> uppercase (A-Z)</label>
+          <label><input type="checkbox" id="numbers" checked> numbers (0-9)</label>
+          <label><input type="checkbox" id="symbols" checked> symbols (!@#...)</label>
+          <label><input type="checkbox" id="excludeAmbig"> avoid similar chars (l 1 I O 0)</label>
+        </div>
+      </div>
+
+      <!-- PASSPHRASE PANEL -->
+      <div class="panel" id="panel-passphrase">
+        <div class="wordlist-status" id="wordlistStatus">
+          <span class="status-dot" id="wordlistStatusDot"></span>
+          <span id="wordlistStatusText">Loading wordlist…</span>
+        </div>
+        <div class="row" style="margin-top:20px;">
+          <label for="wordCount">Words: <span id="wordCountVal">5</span></label>
+          <input type="range" id="wordCount" min="3" max="10" value="5">
+        </div>
+        <div class="row">
+          <label for="separator">Separator</label>
+          <input type="text" id="separator" value="-" maxlength="3">
+        </div>
+        <div class="checks">
+          <label><input type="checkbox" id="capitalize" checked> Capitalize words</label>
+          <label><input type="checkbox" id="addNumber" checked> Add a number</label>
+        </div>
+      </div>
+
+      <button class="pw-btn generate-btn" id="generateBtn">Generate</button>
+
+      <div class="note">
+        Runs entirely in your browser. Uses crypto.getRandomValues (CSPRNG), not Math.random. Nothing you generate is ever sent anywhere. Passphrase mode uses the full 7,776-word EFF list, cached locally after first load so future visits skip the network entirely; if it can't be loaded (no network, CDN unreachable, first visit while offline, with no cache yet) it falls back to a smaller embedded list, so the tool always works either way. Live status is shown above the passphrase controls.
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <a class="brand footer-brand" href="/">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span>EG<span class="accent">Relay</span></span>
+    </a>
+    <p>Privacy-first browser tools.</p>
+    <div>
+      <a href="https://github.com/phrasing0870">GitHub</a>
+      <span>© <span id="year"></span> EGRelay</span>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+  </script>
+
+<script>
+/* ---------- word list for passphrase mode ---------- */
+const WORDS = ["able","acid","acorn","actor","adapt","admit","adult","after","again","agent",
+"agile","agree","ahead","alarm","album","alert","alien","alike","alive","allow",
+"alloy","alone","along","aloud","alpha","amber","amend","among","ample","amuse",
+"angel","anger","angle","ankle","apple","apply","april","apron","arena","argue",
+"arise","armor","aroma","array","arrow","asset","atlas","atom","attic","audio",
+"august","aunt","author","autumn","avenue","avoid","awake","award","aware","awful",
+"badge","baker","balance","balcony","bamboo","banana","banjo","barrel","basil","basin",
+"basket","beacon","beaver","become","before","begin","being","belief","belong","below",
+"bench","berry","better","beyond","bicycle","bind","birch","bison","bitter","blade",
+"blank","blast","blaze","blend","bless","blind","block","bloom","blue","blush",
+"board","boast","bonus","boost","border","bottle","bounce","boundary","brave","bread",
+"break","breeze","brick","bridge","brief","bright","bring","broad","broken","bronze",
+"brook","brown","brush","bubble","budget","buffalo","build","bunch","bundle","burst",
+"button","cabin","cable","cactus","camel","camera","campus","canal","candle","candy",
+"canoe","canvas","canyon","capital","captain","carbon","carpet","carrot","castle","catch",
+"cause","cedar","ceiling","celery","cement","center","cereal","chain","chair","chalk",
+"chance","change","chaos","charge","charm","chart","chase","cheap","check","cheese",
+"cherry","chess","chest","chief","child","chill","chimney","choice","choose","chorus",
+"circle","citrus","city","claim","clamp","clarity","clash","classic","clean","clear",
+"clever","click","cliff","climate","climb","clock","close","cloth","cloud","clover",
+"coach","coast","cobalt","coffee","coil","collar","comet","comfort","comic","common",
+"compass","concert","confirm","copper","coral","corner","cotton","couch","cousin","cover",
+"coyote","crab","craft","crane","crash","crater","cream","create","credit","creek",
+"crew","cricket","crimson","crisp","critic","crop","cross","crowd","crown","crucial",
+"crumb","crush","crystal","cube","cuddle","culture","cumin","curious","curl","current",
+"curtain","curve","custom","cyclone","dairy","dance","danger","daring","dawn","debate",
+"decade","decide","deck","deer","defend","define","degree","delay","delight","deliver",
+"demand","dense","dental","depend","deploy","depth","desert","design","desk","detail",
+"detect","device","devote","dial","diamond","diary","dice","differ","digest","dignity",
+"dinner","direct","discuss","dish","distant","divide","doctor","dolphin","domain","donate",
+"donkey","donor","double","dough","dozen","draft","dragon","drama","drawer","dream",
+"dress","drift","drink","driver","drop","drum","dryer","dune","dusty","eager",
+"eagle","early","earn","earth","easily","east","easy","echo","edge","effort",
+"eight","either","elastic","elbow","elder","electric","elegant","element","elephant","elevate",
+"elite","embark","ember","emerge","emotion","empire","employ","empty","enable","enact",
+"endorse","energy","engage","engine","enjoy","enough","ensure","enter","entire","entry",
+"envelope","episode","equal","equip","erase","erode","errand","escape","essay","estate",
+"ethics","evening","event","evolve","exact","example","excel","exchange","excite","exhibit",
+"exile","exist","exotic","expand","expect","expire","explain","explore","export","extend",
+"extra","fabric","factor","fairly","falcon","family","famous","fancy","fasten","father",
+"faucet","favor","feather","feature","fence","ferry","fever","fiber","field","fierce",
+"figure","filter","finance","finger","finish","fiscal","fitness","flame","flash","flavor",
+"flock","flood","floor","flour","flower","fluid","flute","focus","folder","forest",
+"forge","formal","format","former","fortune","forum","forward","fossil","foster","fountain",
+"fraction","frame","freedom","freeze","fresh","friend","frog","front","frost","frozen",
+"fruit","fuel","fully","fund","funny","furnace","future","gadget","galaxy","gallery",
+"gallon","garage","garden","garlic","gasoline","gather","gauge","gentle","genuine","gesture",
+"giant","giraffe","glacier","glance","glass","gleam","globe","gloomy","glory","glove",
+"goat","gold","gorge","gossip","govern","grace","grain","grand","granite","grape",
+"graph","grass","gravel","gravity","green","greet","grid","grief","grind","grocery",
+"ground","growth","guard","guess","guest","guide","guitar","habit","hallway","hammer",
+"hamster","handle","happen","harbor","harmony","harvest","hazard","heaven","height","helmet",
+"heron","hidden","hollow","honest","honey","horizon","horse","hotel","hover","human",
+"humble","humor","hunger","hunter","hurdle","hybrid","icon","ideal","image","imagine",
+"immune","impact","import","impulse","inbox","include","income","increase","indoor","infant",
+"inform","injury","inner","insect","inside","insight","inspire","install","intent","invite",
+"island","issue","ivory","jacket","jaguar","jasmine","jelly","jewel","jigsaw","joint",
+"jolly","journal","journey","judge","juice","jungle","junior","kayak","kernel","kettle",
+"keyword","kidney","kingdom","kitchen","kitten","knight","knowledge","label","ladder","lagoon",
+"lamp","landing","lantern","laptop","laser","latch","later","laundry","lawyer","layer",
+"leader","league","learn","leather","legacy","lemon","length","lentil","letter","level",
+"liberty","library","license","lift","light","limit","linen","lion","liquid","listen",
+"little","lizard","lobby","locate","locker","lodge","logic","lonely","lookout","lotus",
+"loud","lounge","loyal","lucky","lumber","lunar","lunch","machine","magic","magnet",
+"maiden","mainly","major","mammal","manage","mango","manner","mantle","maple","marble",
+"march","margin","marine","market","marker","marvel","mascot","mason","master","matrix",
+"matter","meadow","measure","medal","medium","member","memory","mentor","mercury","merge",
+"merit","meter","method","middle","midnight","mighty","mineral","minor","minute","mirror",
+"mission","mixture","mobile","modest","module","moment","monitor","monkey","month","moral",
+"morning","motion","motor","mount","mouse","mouth","moving","muffin","multiple","muscle",
+"museum","mushroom","music","mustard","mystery","napkin","narrow","native","nature","navy",
+"nearby","nectar","needle","nephew","nerve","nest","network","neutral","never","newly",
+"nickel","niece","noble","noise","normal","north","notable","note","novel","nugget",
+"number","nurse","nutmeg","oasis","object","obtain","ocean","october","offer","office",
+"often","olive","onion","online","onward","opera","option","orange","orbit","orchard",
+"order","organic","origin","orphan","ostrich","otter","outdoor","output","oval","oven",
+"owner","oxygen","oyster","ozone","pacific","package","paddle","palace","palm","panda",
+"panel","panic","pantry","paper","parade","parcel","parent","park","parrot","partner",
+"party","pastel","patch","path","patient","patio","pattern","pause","payment","peace",
+"peach","peanut","pearl","pebble","pelican","pencil","penguin","people","pepper","period",
+"permit","person","phase","phoenix","phrase","physics","picnic","picture","pigeon","pillow",
+"pilot","pioneer","pipeline","pirate","pivot","planet","plank","plant","plastic","platform",
+"player","plaza","pleasant","pledge","plenty","poet","point","poison","polar","police",
+"policy","polish","pollen","pond","pony","poplar","poppy","portal","portion","possible",
+"poster","potato","pottery","powder","power","prairie","praise","precise","prefer","premium",
+"prepare","present","pretty","price","pride","primary","prince","printer","prism","prize",
+"profile","project","promise","proof","proper","protect","proud","provide","public","puddle",
+"pumpkin","puppet","puppy","purple","purpose","puzzle","python","quality","quantity","quarter",
+"queen","quest","quick","quiet","quilt","quirky","rabbit","racket","radar","radio",
+"raisin","random","range","rapid","raven","reason","rebel","recipe","record","recycle",
+"reflex","refuge","region","relax","relief","remedy","remote","render","repair","report",
+"rescue","resort","result","retail","reveal","reward","rhythm","ribbon","ripple","ritual",
+"river","robot","rocket","romance","roster","rotate","route","royal","rubber","runway",
+"rustic","saddle","safari","salad","salmon","salt","sample","sandal","sapphire","satin",
+"savage","scale","scarf","scene","scholar","school","scoop","scope","screen","script",
+"sculpt","season","secret","sector","secure","seldom","select","senior","sensor","serene",
+"series","settle","shadow","shallow","shape","share","shelf","shelter","shield","shift",
+"shine","ship","shirt","shore","short","should","shovel","shower","shrimp","shrine",
+"shrub","sight","signal","silent","silver","simple","singer","sister","sketch","skill",
+"skirt","skyline","slate","sleepy","slice","slide","slight","slogan","smart","smile",
+"smoke","smooth","snack","sneaker","social","socket","sodium","solar","soldier","solid",
+"solve","sonic","sorrow","sound","source","south","spark","sparrow","speaker","special",
+"speech","speed","sphere","spice","spider","spirit","splash","sponsor","spoon","spring",
+"sprint","square","stable","stadium","staff","stage","stamp","standard","staple","statue",
+"steady","steam","steel","stellar","stone","story","strategy","stream","street","stretch",
+"strong","studio","style","subject","subtle","suburb","subway","sudden","sugar","summer",
+"summit","sunny","sunset","superb","supply","surface","surprise","survey","sushi","swamp",
+"sweater","sweet","swift","switch","symbol","system","table","talent","tangerine","target",
+"tavern","temple","tender","tennis","tenant","terrain","texture","theater","theory","thermal",
+"thick","thistle","thought","thread","thrive","thunder","ticket","tidal","tiger","timber",
+"timely","tissue","toast","tomato","tonic","topic","torch","total","touch","tower",
+"toxic","tractor","trail","train","transit","travel","treasure","trend","tribal","trick",
+"trigger","trolley","tropic","trouble","trout","trust","tulip","tunnel","turbo","turkey",
+"turtle","tuxedo","twilight","twist","umpire","uncle","under","unfold","unify","union",
+"unique","unite","unity","universe","update","upgrade","upload","upper","urban","urgent",
+"usage","useful","usher","utility","vague","valid","valley","value","vanilla","vapor",
+"velvet","vendor","venture","venue","verify","versus","vessel","veteran","victory","video",
+"village","vintage","violet","violin","virtue","vision","visit","vital","vivid","vocal",
+"voice","volcano","volume","voyage","wagon","walnut","wander","warmth","warrior","water",
+"weather","weave","welcome","western","wheat","wheel","whisper","wildlife","willow","window",
+"winter","wisdom","wolf","wonder","wooden","world","worthy","yacht","yearly","yellow",
+"yield","zebra","zenith","zephyr"];
+
+/* ---------- optionally load the full 7776-word EFF list from jsdelivr ---------- */
+/* Falls back to the embedded ~650-word list above if this fails (offline, CDN down, etc). */
+const EFF_WORDLIST_URL = 'https://cdn.jsdelivr.net/gh/phrasing0870/password-generator@main/words/eff_large.json';
+const WORDLIST_CACHE_KEY = 'eff_wordlist_cache_v1';
+let ACTIVE_WORDS = WORDS;
+
+function isValidWordlist(list) {
+  if (!Array.isArray(list) || list.length !== 7776) return false;
+  const seen = new Set();
+  for (const w of list) {
+    if (typeof w !== 'string') return false;
+    if (w.length === 0) return false;
+    if (w !== w.trim().toLowerCase()) return false;
+    if (seen.has(w)) return false;
+    seen.add(w);
+  }
+  return true;
+}
+
+function setWordlistStatus(kind, label) {
+  // kind: 'good' (fresh network fetch), 'cached' (loaded from localStorage),
+  // 'fallback' (embedded list), or 'loading'
+  const dot = document.getElementById('wordlistStatusDot');
+  const text = document.getElementById('wordlistStatusText');
+  if (!dot || !text) return;
+  dot.className = 'status-dot' + (kind === 'good' ? ' status-good' : kind === 'cached' ? ' status-cached' : kind === 'fallback' ? ' status-fallback' : '');
+  text.textContent = ACTIVE_WORDS.length + '-word list: ' + label;
+}
+
+function tryLoadFromCache() {
+  try {
+    const cached = localStorage.getItem(WORDLIST_CACHE_KEY);
+    if (!cached) return false;
+    const list = JSON.parse(cached);
+    if (!isValidWordlist(list)) {
+      localStorage.removeItem(WORDLIST_CACHE_KEY);
+      return false;
+    }
+    ACTIVE_WORDS = list;
+    setWordlistStatus('cached', 'EFF full list, loaded from cache');
+    return true;
+  } catch (e) {
+    // localStorage unavailable (private mode, disabled, quota) or corrupt cache
+    return false;
+  }
+}
+
+function saveToCache(list) {
+  try {
+    localStorage.setItem(WORDLIST_CACHE_KEY, JSON.stringify(list));
+  } catch (e) {
+    // storage full or unavailable, not fatal, just skip caching
+  }
+}
+
+async function loadFullWordlist() {
+  // use the cached copy if we have one; skips the network entirely on repeat visits
+  if (tryLoadFromCache()) return;
+
+  try {
+    const res = await fetch(EFF_WORDLIST_URL);
+    if (!res.ok) throw new Error('fetch failed: ' + res.status);
+    const list = await res.json();
+    if (!isValidWordlist(list)) throw new Error('wordlist failed validation');
+    ACTIVE_WORDS = list;
+    saveToCache(list);
+    setWordlistStatus('good', 'EFF full list, fetched fresh');
+    // if a passphrase was already generated using the fallback list, refresh it
+    if (mode === 'passphrase') generate();
+  } catch (e) {
+    // silent fallback, embedded list is already active
+    setWordlistStatus('fallback', 'offline fallback list');
+  }
+}
+
+/* ---------- shared elements ---------- */
+const result = document.getElementById('result');
+const generateBtn = document.getElementById('generateBtn');
+const copyBtn = document.getElementById('copyBtn');
+const strengthFill = document.getElementById('strengthFill');
+const strengthLabel = document.getElementById('strengthLabel');
+setWordlistStatus('loading', 'embedded list (full list loads when you switch to Passphrase)');
+
+let mode = 'random';
+let wordlistLoadStarted = false;
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    mode = tab.dataset.mode;
+    document.getElementById('panel-random').classList.toggle('active', mode === 'random');
+    document.getElementById('panel-passphrase').classList.toggle('active', mode === 'passphrase');
+    // fetch the full wordlist the first time someone actually opens passphrase
+    // mode, rather than on every page load regardless of which mode is used
+    if (mode === 'passphrase' && !wordlistLoadStarted) {
+      wordlistLoadStarted = true;
+      loadFullWordlist();
+    }
+    generate();
+  });
+});
+
+/* ---------- random mode ---------- */
+const lengthInput = document.getElementById('length');
+const lengthVal = document.getElementById('lengthVal');
+lengthInput.addEventListener('input', () => { lengthVal.textContent = lengthInput.value; generate(); });
+
+const sets = {
+  lower: 'abcdefghijklmnopqrstuvwxyz',
+  upper: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+  numbers: '0123456789',
+  symbols: '!@#$%^&*-_=+'
+};
+const ambiguous = 'lI1O0';
+
+function getRandomInt(max) {
+  const arr = new Uint32Array(1);
+  const limit = Math.floor(0xFFFFFFFF / max) * max;
+  let val;
+  do {
+    crypto.getRandomValues(arr);
+    val = arr[0];
+  } while (val >= limit);
+  return val % max;
+}
+
+function generateRandom() {
+  const len = parseInt(lengthInput.value, 10);
+  const useLower = document.getElementById('lower').checked;
+  const useUpper = document.getElementById('upper').checked;
+  const useNumbers = document.getElementById('numbers').checked;
+  const useSymbols = document.getElementById('symbols').checked;
+  const excludeAmbig = document.getElementById('excludeAmbig').checked;
+
+  let pool = '';
+  const required = [];
+
+  function buildSet(str) {
+    return excludeAmbig ? str.split('').filter(c => !ambiguous.includes(c)).join('') : str;
+  }
+
+  if (useLower) { const s = buildSet(sets.lower); pool += s; required.push(s); }
+  if (useUpper) { const s = buildSet(sets.upper); pool += s; required.push(s); }
+  if (useNumbers) { const s = buildSet(sets.numbers); pool += s; required.push(s); }
+  if (useSymbols) { const s = buildSet(sets.symbols); pool += s; required.push(s); }
+
+  if (pool.length === 0) {
+    result.textContent = 'Select at least one character type';
+    strengthFill.style.width = '0%';
+    strengthLabel.textContent = '';
+    return;
+  }
+  if (len < required.length) {
+    result.textContent = 'Length too short for selected options';
+    return;
+  }
+
+  let passwordChars = [];
+  for (const set of required) {
+    passwordChars.push(set[getRandomInt(set.length)]);
+  }
+  for (let i = passwordChars.length; i < len; i++) {
+    passwordChars.push(pool[getRandomInt(pool.length)]);
+  }
+  for (let i = passwordChars.length - 1; i > 0; i--) {
+    const j = getRandomInt(i + 1);
+    [passwordChars[i], passwordChars[j]] = [passwordChars[j], passwordChars[i]];
+  }
+
+  const password = passwordChars.join('');
+  result.textContent = password;
+  const entropy = password.length * Math.log2(pool.length);
+  showStrength(entropy);
+}
+
+/* ---------- passphrase mode ---------- */
+const wordCountInput = document.getElementById('wordCount');
+const wordCountVal = document.getElementById('wordCountVal');
+wordCountInput.addEventListener('input', () => { wordCountVal.textContent = wordCountInput.value; generate(); });
+
+function generatePassphrase() {
+  const count = parseInt(wordCountInput.value, 10);
+  const sep = document.getElementById('separator').value || '-';
+  const capitalize = document.getElementById('capitalize').checked;
+  const addNumber = document.getElementById('addNumber').checked;
+
+  let words = [];
+  for (let i = 0; i < count; i++) {
+    let w = ACTIVE_WORDS[getRandomInt(ACTIVE_WORDS.length)];
+    if (capitalize) w = w.charAt(0).toUpperCase() + w.slice(1);
+    words.push(w);
+  }
+  if (addNumber) {
+    words.push(String(getRandomInt(100)));
+  }
+
+  const passphrase = words.join(sep);
+  result.textContent = passphrase;
+
+  let entropy = count * Math.log2(ACTIVE_WORDS.length);
+  if (addNumber) entropy += Math.log2(100);
+  showStrength(entropy);
+}
+
+/* ---------- shared strength meter ---------- */
+function showStrength(entropy) {
+  let pct, color, label;
+  if (entropy < 40) { pct = 25; color = 'var(--danger)'; label = 'Weak (' + Math.round(entropy) + ' bits)'; }
+  else if (entropy < 60) { pct = 50; color = 'var(--warn)'; label = 'Fair (' + Math.round(entropy) + ' bits)'; }
+  else if (entropy < 80) { pct = 75; color = 'var(--success)'; label = 'Strong (' + Math.round(entropy) + ' bits)'; }
+  else if (entropy < 175) { pct = 100; color = 'var(--success)'; label = 'Very strong (' + Math.round(entropy) + ' bits)'; }
+  else { pct = 100; color = 'var(--accent)'; label = 'Overkill (' + Math.round(entropy) + ' bits)'; }
+  strengthFill.style.width = pct + '%';
+  strengthFill.style.background = color;
+  strengthLabel.textContent = label;
+}
+
+function generate() {
+  if (mode === 'random') generateRandom();
+  else generatePassphrase();
+}
+
+copyBtn.addEventListener('click', () => {
+  const text = result.textContent;
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = copyBtn.textContent;
+    copyBtn.textContent = 'Copied';
+    setTimeout(() => { copyBtn.textContent = orig; }, 1000);
+  });
+});
+
+generateBtn.addEventListener('click', generate);
+
+// live regeneration: any option change produces a fresh password immediately,
+// no need to press Generate
+['lower', 'upper', 'numbers', 'symbols', 'excludeAmbig', 'capitalize', 'addNumber']
+  .forEach(id => document.getElementById(id).addEventListener('change', generate));
+document.getElementById('separator').addEventListener('input', generate);
+
+generate();
+</script>
+</body>
+</html>
