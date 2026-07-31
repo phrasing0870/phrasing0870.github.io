@@ -9,5 +9,5 @@
 .vscode/
 .idea/
 
-# Node (if any tool ever needs npm install locally)
+# Node
 node_modules/
