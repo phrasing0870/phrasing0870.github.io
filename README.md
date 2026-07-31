@@ -20,6 +20,8 @@ Convert, compress, resize, preview, and strip metadata from images directly in y
 * Metadata removal
 * Local ZIP downloads
 
+[Full documentation →](./image-tool/README.md)
+
 ### [Password Generator](https://egrelay.com/password-generator/)
 
 Generate secure passwords and passphrases entirely client-side.
@@ -30,6 +32,8 @@ Generate secure passwords and passphrases entirely client-side.
 * Custom length and character controls
 * No generated passwords are transmitted or stored remotely
 
+[Full documentation →](./password-generator/README.md)
+
 ### [Ledger](https://egrelay.com/ledger/)
 
 A private encrypted notepad for storing sensitive notes locally.
@@ -38,6 +42,8 @@ A private encrypted notepad for storing sensitive notes locally.
 * Local storage
 * No account or remote database
 * Import and export support
+
+[Full documentation →](./ledger/README.md)
 
 ### [QR Code Generator](https://egrelay.com/qr-generator/)
 
@@ -51,6 +57,8 @@ Create customizable QR codes without sending their contents to a remote service.
 
 This tool's feature design and core logic were adapted from a separately MIT-licensed project (see [`qr-generator/NOTICE.md`](./qr-generator/NOTICE.md) for the original attribution and license text).
 
+[Full documentation →](./qr-generator/README.md)
+
 ### [Checksum Checker](https://egrelay.com/checksum-checker/)
 
 Verify downloaded files locally without uploading them.
@@ -60,6 +68,8 @@ Verify downloaded files locally without uploading them.
 * SHA-512
 * Drag-and-drop file support
 * Browser-native hashing through the Web Crypto API
+
+[Full documentation →](./checksum-checker/README.md)
 
 ## Principles
 
@@ -96,7 +106,7 @@ The complete source for the website and its tools is available in this repositor
 └── sitemap.xml
 ```
 
-Individual tools may contain their own assets, dependencies, documentation, and vendored libraries.
+Individual tools may contain their own assets, dependencies, documentation, and vendored libraries. Each tool's directory also contains its own README with implementation details, security model, and format support.
 
 ## Running locally
 
@@ -159,3 +169,4 @@ A current desktop or mobile browser is recommended. Certain features depend on m
 Licensed under the [MIT License](./LICENSE).
 
 The QR Code Generator tool's core logic was originally adapted from a separately MIT-licensed project; see [`qr-generator/NOTICE.md`](./qr-generator/NOTICE.md) for that project's original copyright notice, which is carried forward there as required.
+
