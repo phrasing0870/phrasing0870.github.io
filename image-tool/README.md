@@ -1,79 +1,35 @@
 # Image Converter & Compressor
 
-A single-file, offline-capable image conversion tool that runs entirely in the browser. No uploads, no server, and no external requests once the page and its vendored libraries are loaded. Everything happens client-side via the Canvas API.
+Convert, compress, and resize images entirely in your browser. Nothing is uploaded; everything runs client-side via WASM and the Canvas API.
 
-## Why this exists
+## What it does
 
-Most online image converters upload your files to a server. This one does not. Drop a file in; it is decoded and processed locally in your browser, and nothing leaves your machine. This is critical if you are converting files you would rather not hand to a third party, including photos with EXIF/GPS metadata still attached.
+Drag in one or more images (or paste a screenshot directly) and it converts them to your chosen format, compresses them, and optionally resizes them, all with a live before/after size comparison. Batch processing is supported: convert a folder's worth of images and download them all as a single .zip.
 
-## Features
+## Formats
 
-- **Batch processing**: Drag and drop multiple files, or paste an image straight from your clipboard.
-- **Download all as zip**: Batch download every converted file in one go.
-- **Format conversion**: Support for JPEG, PNG, WebP, GIF (static, single-frame), TIFF, BMP, ICO, and ICNS.
-- **Quality control**: Adjustable quality slider for lossy formats (JPEG/WebP). JPEG encoding runs through mozjpeg (WASM) instead of the browser's built-in encoder for better quality-per-byte at the same quality setting. It runs in a dedicated Web Worker, similar to the PNG optimization described below.
-- **Target file size mode**: Set a max KB size instead of a quality percentage; the tool binary-searches the quality value that gets closest to your target without exceeding it.
-- **PNG optimization**: Lossless recompression via oxipng (WASM), maintaining identical pixels and colors in a smaller file. Optimization levels are adjustable from 1 to 6; higher values result in smaller files but slower processing. It runs in a dedicated Web Worker so the multi-second compression pass does not freeze the page. This replaced an earlier lossy palette-reduction approach.
-- **Strip metadata mode**: Removes EXIF, GPS, camera info, and timestamps by forcing a clean re-encode while keeping each file in its original format (JPEG stays JPEG, PNG stays PNG, WebP stays WebP). It also drops embedded ICC color profiles, which can shift color slightly on wide-gamut images. GIF, TIFF, BMP, ICO, and ICNS inputs fall back to PNG output in this mode because they are not valid canvas re-encode targets.
-- **Smart format defaults**: Dropping a transparent PNG will not silently default to a format that flattens the alpha channel; dropping a large opaque JPEG suggests WebP to show quick size savings. This only applies before you manually pick a format.
-- **Resize controls**: Scale by percentage or set exact dimensions.
-- **Background fill**: Choose a background color when converting to formats without alpha support (JPEG, GIF).
-- **Side-by-side preview**: Compare original vs. converted images before downloading.
-- **Runtime canvas limit detection**: Probes the actual browser's max canvas dimension at runtime instead of assuming a fixed cap; this ensures full-resolution photos are not needlessly downscaled on desktop browsers.
+- **Input**: anything the browser can decode (JPEG, PNG, WebP, GIF, TIFF, BMP, and more)
+- **Output**: JPEG, PNG, WebP, GIF (static, 256-color palette), TIFF (uncompressed), BMP, ICO, and ICNS (macOS icon format)
 
-## How metadata stripping works
+## Key features
 
-Canvas re-encoding (`drawImage` + `toBlob`, or `drawImage` + mozjpeg for JPEG) only copies pixel data by design, not EXIF or other metadata segments. Strip-metadata mode leverages this behavior: it re-encodes each file at a fixed high quality while keeping the same format, producing a metadata-free copy. JPEG re-encodes through mozjpeg at quality 90; other formats use `canvas.toBlob` at quality 0.95. Because this is a fixed value rather than a match to the source file's original quality, a re-encoded JPEG can end up slightly larger or smaller than the original depending on how it was originally compressed. Each processed file shows a "metadata removed" confirmation in the UI rather than claiming it happened silently.
+- **Quality control**: slider-based quality for lossy formats, or set a target file size in KB and it binary-searches the quality value that gets closest without going over.
+- **Smart format defaults**: detects transparency and avoids silently flattening a transparent PNG to JPEG; also nudges large opaque JPEGs toward WebP by default to show immediate savings. Only kicks in if you haven't manually picked a format yet.
+- **Resize**: by percentage or exact width/height, with optional aspect-ratio lock. Automatically detects and respects the browser's actual max canvas dimension (varies by device, especially mobile Safari) instead of using a guessed hardcoded limit.
+- **Metadata stripping**: removes EXIF and other embedded metadata; for JPEG/PNG/WebP inputs this re-encodes in the same format, other formats fall back to PNG since those aren't valid canvas.toBlob outputs.
+- **Background color**: for formats without alpha support, choose the fill color used when flattening transparency.
+- **Batch download**: download individual files or all converted images at once as a .zip (via JSZip).
 
-This has been verified: stripping a photo with a full Apple EXIF block (device model, lens info, exact GPS-adjacent timestamp with UTC offset, MakerNote) results in a file with zero EXIF tags remaining, confirmed via PIL/Pillow inspection.
+## How it works
 
-## Format notes
+- **JPEG encoding** goes through mozjpeg (WASM) instead of the browser's native encoder, for better compression at a given quality.
+- **PNG optimization** goes through oxipng (WASM, Rust), run in a dedicated Web Worker so the multi-second compression pass doesn't freeze the page. It's lossless: same pixels, just a smaller, better-encoded file. The browser produces a normal PNG first, then oxipng re-encodes those bytes.
+- **GIF encoding** uses gifenc to quantize down to a 256-color palette and write a single static frame; no animation support.
+- **TIFF encoding** uses UTIF.js, uncompressed.
+- **ICO/ICNS** are hand-built PNG-in-container formats (no external library needed for those).
+- Conversions run through a small concurrency queue so multiple images don't all try to convert at once and choke the tab.
+- No network requests, no server. Everything, including the WASM codecs, runs locally in the browser.
 
-- **GIF** output is limited to single frames; animation is not supported.
-- **TIFF, BMP, ICO, and ICNS** are written via hand-rolled binary encoders; no metadata is ever carried into these regardless of strip mode.
-- **HEIC input** is not yet supported.
+## Notes
 
-## Local development
-
-This is a static single HTML file with eight vendored JS/WASM dependencies:
-
-```
-index.html
-vendor/
-  gifenc.js      # GIF encoding
-  utif.js        # TIFF encoding
-  jszip.min.js   # batch "download all as zip" (v3.10.1)
-  oxipng-worker.js         # runs oxipng off the main thread (see below)
-  oxipng/
-    squoosh_oxipng.js       # oxipng WASM loader (wasm-bindgen generated)
-    squoosh_oxipng_bg.wasm  # oxipng WASM binary
-  mozjpeg-worker.js        # runs mozjpeg off the main thread, same rationale as oxipng
-  mozjpeg/
-    mozjpeg_enc.js          # mozjpeg WASM loader (Emscripten generated, from @jsquash/jpeg)
-    mozjpeg_enc.wasm        # mozjpeg WASM binary
-```
-
-There is no build step; however, do not simply double-click `index.html`. The GIF encoder is loaded as an ES module (`<script type="module">`), and browsers block ES module imports over the `file://` protocol via CORS. Opening the file directly will throw a console error and GIF export will not work.
-
-Instead, serve the folder with any static file server, for example:
-
-```
-python3 -m http.server 8000
-# then open http://localhost:8000
-```
-
-or the Node equivalent (`npx serve`). GitHub Pages serves everything over `https://`, so this only matters for local testing, not for the deployed site.
-
-There are no external CDN dependencies; everything needed to run offline is vendored in `vendor/`, including `jszip.min.js` (used for the batch zip download), which must be downloaded once and committed alongside the HTML rather than loaded from cdnjs.
-
-## Deploying
-
-Push to a GitHub repo with GitHub Pages enabled on the branch or folder containing `index.html`. No build pipeline is required.
-
-## Privacy
-
-No analytics, no tracking, and no network calls once the page has loaded (aside from the initial page and script load). All conversion, compression, resizing, and metadata stripping happens locally in your browser via the Canvas API. Files never leave your device.
-
-## License
-
-MIT: see [LICENSE](./LICENSE).
+Built for one-off and small-batch conversion work, not a production image pipeline. If you're leaning on the target-file-size feature for a lot of images at once, expect it to take a bit longer since it's running several trial encodes per image to find the right quality.
