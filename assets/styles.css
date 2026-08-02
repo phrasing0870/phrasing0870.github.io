@@ -7,7 +7,7 @@
   --border-soft: #1d222d;
   --text: #e7ebf2;
   --muted: #9ba3b1;
-  --muted-dim: #737b89;
+  --muted-dim: #7f8794;
   --accent: #78afe8;
   --accent-hover: #91c0ef;
   --accent-dim: #3d6690;
@@ -40,6 +40,19 @@ body {
 }
 
 a { color: inherit; }
+
+a:focus-visible,
+button:focus-visible,
+.tool-card:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+.tool-card:focus-visible {
+  box-shadow: 0 0 0 4px var(--accent-soft), 0 0 20px var(--accent-glow);
+}
 
 .mono {
   font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
@@ -265,6 +278,10 @@ h1 span {
   gap: 12px;
 }
 
+.tool-card.featured {
+  grid-column: 1 / -1;
+}
+
 .tool-card {
   min-height: 350px;
   position: relative;
@@ -289,10 +306,54 @@ h1 span {
 }
 
 .tool-card.featured {
+  min-height: 220px;
+  flex-direction: row;
+  align-items: center;
+  gap: 32px;
   background:
     radial-gradient(circle at 90% 15%, var(--accent-glow), transparent 13rem),
     linear-gradient(145deg, rgba(255,255,255,0.025), transparent 45%),
     var(--panel);
+}
+
+.tool-card.featured .tool-card-top {
+  position: absolute;
+  top: 26px;
+  left: 26px;
+  right: 26px;
+}
+
+.tool-card.featured .tool-emoji {
+  margin: 0;
+  font-size: 3.5rem;
+  flex-shrink: 0;
+}
+
+.tool-card.featured .tool-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.tool-card.featured h3 {
+  font-size: 1.6rem;
+}
+
+.tool-card.featured p {
+  max-width: 52ch;
+  margin: 10px 0 18px;
+}
+
+.tool-card.featured .tags {
+  margin-top: 4px;
+}
+
+@media (max-width: 720px) {
+  .tool-card.featured {
+    flex-direction: column;
+    align-items: flex-start;
+    min-height: 350px;
+  }
 }
 
 .tool-card-top {
