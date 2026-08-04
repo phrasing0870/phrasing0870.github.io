@@ -9,19 +9,46 @@
     --bg: #0d1016;
     --bg-raised: #141821;
     --bg-input: #080a0e;
+    --bg-hover: #181d27;
     --border: #262d3a;
     --border-focus: #3a4658;
     --text: #e7ebf2;
-    --text-dim: #9ba3b1;
-    --text-faint: #737b89;
+    --text-dim: #9ea6b3;
+    --text-faint: #989fa9;
     --accent: #78afe8;
-    --accent-dim: #3d6690;
+    --accent-dim: #2f4f70;
     --accent-interactive: #91c0ef;
     --accent-glow: rgba(120, 175, 232, 0.35);
-    --danger: #e08a78;
+    --on-accent: #080a0e;
+    --danger: #e18e7c;
     --danger-dim: #5a3730;
+    --danger-hover: #e8a493;
     --mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
     --serif: Georgia, 'Iowan Old Style', serif;
+    color-scheme: dark;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f5f6f9;
+      --bg-raised: #ffffff;
+      --bg-input: #e8ebf1;
+      --bg-hover: #eef1f6;
+      --border: #d7dce5;
+      --border-focus: #9fabbd;
+      --text: #171a21;
+      --text-dim: #464e5a;
+      --text-faint: #484d57;
+      --accent: #214e7c;
+      --accent-dim: #cfe0f0;
+      --accent-interactive: #1a3f66;
+      --accent-glow: rgba(33, 78, 124, 0.35);
+      --on-accent: #ffffff;
+      --danger: #833325;
+      --danger-dim: #f2d9d3;
+      --danger-hover: #84311c;
+      color-scheme: light;
+    }
   }
 
   * { box-sizing: border-box; }
@@ -128,7 +155,7 @@
     transition: all 0.15s ease;
   }
 
-  .lock-btn:hover { background: var(--accent-interactive); border-color: var(--accent-interactive); color: var(--bg); }
+  .lock-btn:hover { background: var(--accent-interactive); border-color: var(--accent-interactive); color: var(--on-accent); }
 
   .lock-note {
     margin-top: 18px;
@@ -156,7 +183,7 @@
   }
   .lock-toggle:hover { color: var(--text); }
   .lock-toggle.danger-link { color: var(--danger); }
-  .lock-toggle.danger-link:hover { color: #e8a493; }
+  .lock-toggle.danger-link:hover { color: var(--danger-hover); }
 
   .vault-row {
     display: flex;
@@ -176,7 +203,7 @@
   }
   .vault-row:hover {
     border-color: var(--border-focus);
-    background: #181d27;
+    background: var(--bg-hover);
   }
   .vault-row-label {
     font-family: var(--serif);
@@ -428,7 +455,7 @@
     white-space: nowrap;
     transition: all 0.15s ease;
   }
-  .new-entry-btn:hover { background: var(--accent-interactive); border-color: var(--accent-interactive); color: var(--bg); }
+  .new-entry-btn:hover { background: var(--accent-interactive); border-color: var(--accent-interactive); color: var(--on-accent); }
 
   .entry-list {
     display: flex;
@@ -447,7 +474,7 @@
   }
   .entry-row:hover {
     border-color: var(--border-focus);
-    background: #181d27;
+    background: var(--bg-hover);
   }
 
   .entry-row-top {
@@ -732,7 +759,7 @@
     border-radius: 6px;
     transition: all 0.15s ease;
   }
-  .settings-btn:hover { background: var(--accent-interactive); border-color: var(--accent-interactive); color: var(--bg); }
+  .settings-btn:hover { background: var(--accent-interactive); border-color: var(--accent-interactive); color: var(--on-accent); }
   .settings-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
   .settings-btn.danger-btn {
