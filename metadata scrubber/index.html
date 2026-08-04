@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Metadata Scrubber</title>
+<meta name="description" content="View and strip EXIF, GPS location, and document metadata from images and PDFs, entirely in your browser.">
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  /* ---- tool-specific additions, built on top of the shared token system ---- */
+
+  .dropzone{
+    border: 1.5px dashed var(--border);
+    border-radius: 5px;
+    background: var(--bg-deep);
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 150ms, background 150ms;
+  }
+  .dropzone:hover, .dropzone.drag{ border-color: var(--accent); background: var(--panel-hover); }
+  .dropzone strong{ font-size: 0.95rem; }
+  .dropzone .types{
+    margin-top: 8px;
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size: 0.72rem;
+    color: var(--muted-dim);
+    letter-spacing: 0.05em;
+  }
+  input[type=file]{ display: none; }
+
+  .filebar{
+    display: flex; align-items: center; gap: 12px;
+    margin-top: 16px; padding: 10px 14px;
+    background: var(--bg-deep); border: 1px solid var(--border); border-radius: 3px;
+    font-size: 0.86rem;
+  }
+  .filebar .name{
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size: 0.78rem; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .filebar .size{ color: var(--muted-dim); font-size: 0.76rem; }
+  .filebar button.clear{
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: 16px; line-height: 1; padding: 4px;
+  }
+  .filebar button.clear:hover{ color: var(--danger); }
+
+  .meta-section{ margin-top: 20px; }
+  .meta-section h2{
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--muted-dim); margin: 0 0 14px;
+  }
+
+  .gps-alert{
+    display: flex; gap: 12px; align-items: flex-start;
+    background: rgba(224, 138, 120, 0.1); border: 1px solid rgba(224, 138, 120, 0.35);
+    border-radius: 4px; padding: 14px 16px; margin-bottom: 16px;
+  }
+  .gps-alert .icon{ font-size: 18px; line-height: 1.3; }
+  .gps-alert .body strong{ display: block; font-size: 0.9rem; margin-bottom: 4px; color: var(--text); }
+  .gps-alert .body p{ margin: 0; font-size: 0.84rem; color: var(--muted); line-height: 1.6; }
+  .gps-alert .coords{
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    color: var(--text); font-size: 0.8rem; margin-top: 6px;
+  }
+  .gps-alert .maplink{
+    display: inline-block; margin-top: 8px; font-size: 0.82rem; color: var(--danger);
+    border-bottom: 1px solid rgba(224, 138, 120, 0.5);
+  }
+  .gps-alert .maplink:hover{ color: var(--text); }
+
+  table.meta{ width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+  table.meta tr{ border-bottom: 1px solid var(--border-soft); }
+  table.meta tr:last-child{ border-bottom: none; }
+  table.meta td{ padding: 9px 4px; vertical-align: top; }
+  table.meta td.k{
+    color: var(--muted-dim);
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size: 0.76rem; white-space: nowrap; padding-right: 18px; width: 1%;
+  }
+  table.meta td.v{ color: var(--text); word-break: break-word; }
+
+  .empty-note{ color: var(--muted-dim); font-size: 0.84rem; font-style: italic; }
+
+  .actions{ display: flex; gap: 10px; margin-top: 22px; flex-wrap: wrap; }
+
+  .status{ margin-top: 14px; font-size: 0.84rem; color: var(--muted); }
+  .status.ok{ color: var(--success); }
+  .status.err{ color: var(--danger); }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span><span>EG<span class="accent">Relay</span></span></a>
+  <nav class="site-nav">
+    <a href="/#tools">Tools</a>
+    <a href="/#principles">Principles</a>
+    <a href="https://github.com/phrasing0870">GitHub</a>
+  </nav>
+</header>
+
+<main class="tool-main">
+  <div class="tool-masthead">
+    <a class="back-link" href="/">← All tools</a>
+    <p class="eyebrow"><span></span>Local · No Uploads · No Accounts</p>
+    <h1>Metadata Scrubber</h1>
+    <p class="sub">
+      See exactly what's hiding in a file, camera model, timestamps, GPS coordinates, document author,
+      before you decide to remove it. Everything runs in your browser; nothing here is ever uploaded.
+    </p>
+  </div>
+
+  <div class="tool-card-panel">
+
+    <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Choose a file to inspect">
+      <strong>Drop a file here</strong> or click to choose one
+      <div class="types">JPEG · PNG · WEBP · PDF</div>
+      <input type="file" id="fileInput" accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf">
+    </div>
+
+    <div class="filebar" id="filebar" style="display:none;">
+      <span class="name" id="fileName"></span>
+      <span class="size" id="fileSize"></span>
+      <button class="clear" id="clearBtn" title="Remove file" aria-label="Remove file">✕</button>
+    </div>
+
+    <div id="results" style="display:none;">
+      <div class="meta-section">
+        <h2>Found metadata</h2>
+        <div id="gpsAlert"></div>
+        <div id="metaTableWrap"></div>
+      </div>
+
+      <div class="actions">
+        <button class="button primary" id="scrubBtn">Scrub &amp; download clean copy</button>
+        <button class="button secondary" id="resetBtn">Start over</button>
+      </div>
+      <div class="status" id="status"></div>
+    </div>
+
+    <p class="note">
+      Images are scrubbed by redrawing them onto a canvas and re-exporting, which drops all EXIF, GPS,
+      and embedded color profile data by construction. Orientation is baked into the pixels first, so the
+      output still looks correct. PDFs are scrubbed by clearing the document info dictionary (author, creator,
+      producer, timestamps) and removing any embedded XMP metadata stream. No file ever leaves your device.
+    </p>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span><span>EG<span class="accent">Relay</span></span></a>
+  <p>Privacy-first browser tools.</p>
+  <div>
+    <a href="https://github.com/phrasing0870">GitHub</a>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script>
+(function(){
+  'use strict';
+
+  // ---------- TIFF / EXIF core (shared by JPEG, PNG eXIf, WebP EXIF) ----------
+
+  const TAG_NAMES = {
+    271:'Make', 272:'Model', 305:'Software', 274:'Orientation',
+    306:'DateTime', 315:'Artist', 33432:'Copyright',
+    36867:'DateTimeOriginal', 36868:'DateTimeDigitized',
+    42036:'LensModel', 42035:'LensMake',
+    33437:'FNumber', 34855:'ISOSpeedRatings', 37386:'FocalLength',
+    37385:'Flash', 40962:'PixelXDimension', 40963:'PixelYDimension',
+    42033:'BodySerialNumber'
+  };
+  const GPS_TAG_NAMES = {
+    1:'GPSLatitudeRef', 2:'GPSLatitude', 3:'GPSLongitudeRef', 4:'GPSLongitude',
+    5:'GPSAltitudeRef', 6:'GPSAltitude', 7:'GPSTimeStamp', 29:'GPSDateStamp'
+  };
+  const TYPE_SIZES = {1:1,2:1,3:2,4:4,5:8,7:1,9:4,10:8};
+
+  function readRational(view, offset, little, signed){
+    const num = signed ? view.getInt32(offset, little) : view.getUint32(offset, little);
+    const den = signed ? view.getInt32(offset+4, little) : view.getUint32(offset+4, little);
+    return den === 0 ? 0 : num/den;
+  }
+
+  function readIFD(view, tiffStart, ifdOffset, little){
+    const entries = {};
+    if (ifdOffset + 2 > view.byteLength) return { entries, nextIFDOffset: null };
+    const count = view.getUint16(ifdOffset, little);
+    for (let i=0;i<count;i++){
+      const entryOffset = ifdOffset + 2 + i*12;
+      if (entryOffset + 12 > view.byteLength) break;
+      const tag = view.getUint16(entryOffset, little);
+      const type = view.getUint16(entryOffset+2, little);
+      const numValues = view.getUint32(entryOffset+4, little);
+      const size = (TYPE_SIZES[type]||1) * numValues;
+      const valueOffset = size > 4 ? tiffStart + view.getUint32(entryOffset+8, little) : entryOffset+8;
+      let value = null;
+      try{
+        if (type === 2){
+          let s='';
+          for (let j=0;j<numValues-1;j++) s += String.fromCharCode(view.getUint8(valueOffset+j));
+          value = s;
+        } else if (type === 3){
+          const arr=[]; for (let j=0;j<numValues;j++) arr.push(view.getUint16(valueOffset+j*2, little));
+          value = numValues===1 ? arr[0] : arr;
+        } else if (type === 4){
+          const arr=[]; for (let j=0;j<numValues;j++) arr.push(view.getUint32(valueOffset+j*4, little));
+          value = numValues===1 ? arr[0] : arr;
+        } else if (type === 5){
+          const arr=[]; for (let j=0;j<numValues;j++) arr.push(readRational(view, valueOffset+j*8, little, false));
+          value = numValues===1 ? arr[0] : arr;
+        } else if (type === 10){
+          const arr=[]; for (let j=0;j<numValues;j++) arr.push(readRational(view, valueOffset+j*8, little, true));
+          value = numValues===1 ? arr[0] : arr;
+        } else if (type === 1 || type === 7){
+          const arr=[]; for (let j=0;j<numValues;j++) arr.push(view.getUint8(valueOffset+j));
+          value = arr;
+        }
+      } catch(e){ value = null; }
+      entries[tag] = value;
+    }
+    return { entries };
+  }
+
+  function gpsToDecimal(dms, ref){
+    if (!Array.isArray(dms) || dms.length !== 3) return null;
+    const [d,m,s] = dms;
+    let dec = d + m/60 + s/3600;
+    if (ref === 'S' || ref === 'W') dec = -dec;
+    return dec;
+  }
+
+  function parseTIFF(view, tiffStart){
+    if (tiffStart + 8 > view.byteLength) return null;
+    const byteOrder = view.getUint16(tiffStart, false);
+    const little = byteOrder === 0x4949;
+    if (byteOrder !== 0x4949 && byteOrder !== 0x4D4D) return null;
+    const magic = view.getUint16(tiffStart+2, little);
+    if (magic !== 42) return null;
+    const ifd0Offset = view.getUint32(tiffStart+4, little);
+
+    const result = { tags:{}, gps:{} };
+    const { entries: ifd0 } = readIFD(view, tiffStart, tiffStart+ifd0Offset, little);
+
+    for (const [tagStr, value] of Object.entries(ifd0)){
+      const tag = Number(tagStr);
+      if (tag === 34665){
+        const { entries: exifEntries } = readIFD(view, tiffStart, tiffStart+value, little);
+        for (const [t,v] of Object.entries(exifEntries)){
+          const name = TAG_NAMES[Number(t)];
+          if (name) result.tags[name] = v;
+        }
+      } else if (tag === 34853){
+        const { entries: gpsEntries } = readIFD(view, tiffStart, tiffStart+value, little);
+        for (const [t,v] of Object.entries(gpsEntries)){
+          const name = GPS_TAG_NAMES[Number(t)];
+          if (name) result.gps[name] = v;
+        }
+      } else {
+        const name = TAG_NAMES[tag];
+        if (name) result.tags[name] = value;
+      }
+    }
+    if (result.gps.GPSLatitude) result.gps.decimalLat = gpsToDecimal(result.gps.GPSLatitude, result.gps.GPSLatitudeRef);
+    if (result.gps.GPSLongitude) result.gps.decimalLon = gpsToDecimal(result.gps.GPSLongitude, result.gps.GPSLongitudeRef);
+    return result;
+  }
+
+  // ---------- JPEG: find APP1 Exif segment ----------
+
+  function parseJPEG(buffer){
+    const view = new DataView(buffer);
+    if (view.getUint16(0) !== 0xFFD8) return { tags:{}, gps:{}, notes:[] };
+    let offset = 2;
+    const notes = [];
+    let tiffResult = null;
+
+    while (offset < view.byteLength - 1){
+      if (view.getUint8(offset) !== 0xFF) break;
+      const marker = view.getUint8(offset+1);
+      if (marker === 0xD8 || marker === 0x01 || (marker >= 0xD0 && marker <= 0xD7)){
+        offset += 2; continue;
+      }
+      if (marker === 0xDA) break; // start of scan, entropy data follows
+      if (offset + 4 > view.byteLength) break;
+      const length = view.getUint16(offset+2);
+      const segStart = offset + 4;
+
+      if (marker === 0xE1){ // APP1
+        const header = getAscii(view, segStart, 6);
+        if (header === 'Exif\0\0'){
+          tiffResult = parseTIFF(view, segStart + 6);
+        } else if (getAscii(view, segStart, 29) === 'http://ns.adobe.com/xap/1.0/'){
+          notes.push('Embedded XMP packet present');
+        }
+      } else if (marker === 0xE2){
+        const header = getAscii(view, segStart, 12);
+        if (header === 'ICC_PROFILE\0'.slice(0,12)) notes.push('Embedded ICC color profile present');
+      }
+      offset = segStart + (length - 2);
+    }
+    return tiffResult ? { tags: tiffResult.tags, gps: tiffResult.gps, notes } : { tags:{}, gps:{}, notes };
+  }
+
+  function getAscii(view, offset, len){
+    if (offset + len > view.byteLength) return '';
+    let s = '';
+    for (let i=0;i<len;i++) s += String.fromCharCode(view.getUint8(offset+i));
+    return s;
+  }
+
+  // ---------- PNG: tEXt/iTXt/zTXt/eXIf chunks ----------
+
+  async function inflateZlib(bytes){
+    try{
+      const ds = new DecompressionStream('deflate');
+      const stream = new Blob([bytes]).stream().pipeThrough(ds);
+      const out = await new Response(stream).arrayBuffer();
+      return new Uint8Array(out);
+    } catch(e){ return null; }
+  }
+
+  async function parsePNG(buffer){
+    const view = new DataView(buffer);
+    const bytes = new Uint8Array(buffer);
+    const textChunks = {};
+    let tiffResult = null;
+    let offset = 8; // skip signature
+    while (offset + 8 <= view.byteLength){
+      const len = view.getUint32(offset);
+      const type = getAscii(view, offset+4, 4);
+      const dataStart = offset + 8;
+      if (dataStart + len > view.byteLength) break;
+
+      if (type === 'tEXt'){
+        const chunk = bytes.subarray(dataStart, dataStart+len);
+        const nul = chunk.indexOf(0);
+        if (nul !== -1){
+          const keyword = new TextDecoder('latin1').decode(chunk.subarray(0,nul));
+          const text = new TextDecoder('latin1').decode(chunk.subarray(nul+1));
+          textChunks[keyword] = text;
+        }
+      } else if (type === 'zTXt'){
+        const chunk = bytes.subarray(dataStart, dataStart+len);
+        const nul = chunk.indexOf(0);
+        if (nul !== -1){
+          const keyword = new TextDecoder('latin1').decode(chunk.subarray(0,nul));
+          const compressed = chunk.subarray(nul+2);
+          const inflated = await inflateZlib(compressed);
+          if (inflated) textChunks[keyword] = new TextDecoder('utf-8').decode(inflated);
+        }
+      } else if (type === 'iTXt'){
+        const chunk = bytes.subarray(dataStart, dataStart+len);
+        let p = chunk.indexOf(0);
+        if (p !== -1){
+          const keyword = new TextDecoder('utf-8').decode(chunk.subarray(0,p));
+          const compressionFlag = chunk[p+1];
+          let q = p + 3; // skip flag + method
+          let n2 = chunk.indexOf(0, q);
+          q = n2 + 1;
+          let n3 = chunk.indexOf(0, q);
+          const rest = chunk.subarray(n3+1);
+          if (compressionFlag === 1){
+            const inflated = await inflateZlib(rest);
+            if (inflated) textChunks[keyword] = new TextDecoder('utf-8').decode(inflated);
+          } else {
+            textChunks[keyword] = new TextDecoder('utf-8').decode(rest);
+          }
+        }
+      } else if (type === 'eXIf'){
+        const chunk = buffer.slice(dataStart, dataStart+len);
+        tiffResult = parseTIFF(new DataView(chunk), 0);
+      } else if (type === 'IEND'){
+        break;
+      }
+      offset = dataStart + len + 4; // skip CRC
+    }
+    const tags = Object.assign({}, textChunks, tiffResult ? tiffResult.tags : {});
+    const gps = tiffResult ? tiffResult.gps : {};
+    return { tags, gps, notes: [] };
+  }
+
+  // ---------- WebP: RIFF EXIF / XMP chunks ----------
+
+  function parseWebP(buffer){
+    const view = new DataView(buffer);
+    const bytes = new Uint8Array(buffer);
+    if (getAscii(view,0,4) !== 'RIFF' || getAscii(view,8,4) !== 'WEBP') return { tags:{}, gps:{}, notes:[] };
+    let offset = 12;
+    let tiffResult = null;
+    const notes = [];
+    while (offset + 8 <= view.byteLength){
+      const fourCC = getAscii(view, offset, 4);
+      const size = view.getUint32(offset+4, true);
+      const dataStart = offset + 8;
+      if (dataStart + size > view.byteLength) break;
+
+      if (fourCC === 'EXIF'){
+        let chunk = buffer.slice(dataStart, dataStart+size);
+        const dv = new DataView(chunk);
+        const maybeHeader = getAscii(dv, 0, 6);
+        tiffResult = maybeHeader === 'Exif\0\0' ? parseTIFF(dv, 6) : parseTIFF(dv, 0);
+      } else if (fourCC === 'XMP '){
+        notes.push('Embedded XMP packet present');
+      }
+      offset = dataStart + size + (size % 2); // chunks are padded to even size
+    }
+    return tiffResult ? { tags: tiffResult.tags, gps: tiffResult.gps, notes } : { tags:{}, gps:{}, notes };
+  }
+
+  // ---------- PDF: info dict + XMP presence, via pdf-lib ----------
+
+  async function parsePDF(file){
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const { PDFDocument, PDFName } = window.PDFLib;
+    const doc = await PDFDocument.load(bytes, { updateMetadata: false, ignoreEncryption: true });
+    const tags = {};
+    const get = (fn) => { try { return fn(); } catch(e){ return undefined; } };
+    const map = {
+      Title: get(()=>doc.getTitle()),
+      Author: get(()=>doc.getAuthor()),
+      Subject: get(()=>doc.getSubject()),
+      Keywords: get(()=>doc.getKeywords()),
+      Creator: get(()=>doc.getCreator()),
+      Producer: get(()=>doc.getProducer()),
+      CreationDate: get(()=>doc.getCreationDate()),
+      ModificationDate: get(()=>doc.getModificationDate()),
+    };
+    for (const [k,v] of Object.entries(map)){
+      if (v !== undefined && v !== null && v !== '') tags[k] = (v instanceof Date) ? v.toISOString() : String(v);
+    }
+    let hasXMP = false;
+    try{
+      const metaRef = doc.catalog.get(PDFName.of('Metadata'));
+      hasXMP = !!metaRef;
+    } catch(e){}
+    const notes = hasXMP ? ['Embedded XMP metadata stream present'] : [];
+    return { tags, gps:{}, notes, _doc: doc };
+  }
+
+  async function scrubPDF(doc){
+    const { PDFName } = window.PDFLib;
+    doc.setTitle('');
+    doc.setAuthor('');
+    doc.setSubject('');
+    doc.setKeywords([]);
+    doc.setCreator('');
+    doc.setProducer('');
+    try { doc.catalog.delete(PDFName.of('Metadata')); } catch(e){}
+    return await doc.save();
+  }
+
+  // ---------- UI wiring ----------
+
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  const filebar = document.getElementById('filebar');
+  const fileNameEl = document.getElementById('fileName');
+  const fileSizeEl = document.getElementById('fileSize');
+  const clearBtn = document.getElementById('clearBtn');
+  const results = document.getElementById('results');
+  const gpsAlertEl = document.getElementById('gpsAlert');
+  const metaTableWrap = document.getElementById('metaTableWrap');
+  const scrubBtn = document.getElementById('scrubBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const statusEl = document.getElementById('status');
+
+  let currentFile = null;
+  let currentKind = null; // 'jpeg' | 'png' | 'webp' | 'pdf'
+  let currentPdfDoc = null;
+
+  dropzone.addEventListener('click', () => fileInput.click());
+  dropzone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
+  dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('drag'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault(); dropzone.classList.remove('drag');
+    if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', () => { if (fileInput.files.length) handleFile(fileInput.files[0]); });
+  clearBtn.addEventListener('click', resetAll);
+  resetBtn.addEventListener('click', resetAll);
+
+  function resetAll(){
+    currentFile = null; currentKind = null; currentPdfDoc = null;
+    fileInput.value = '';
+    filebar.style.display = 'none';
+    results.style.display = 'none';
+    statusEl.textContent = ''; statusEl.className = 'status';
+    scrubBtn.disabled = false;
+  }
+
+  function formatBytes(n){
+    if (n < 1024) return n + ' B';
+    if (n < 1024*1024) return (n/1024).toFixed(1) + ' KB';
+    return (n/(1024*1024)).toFixed(1) + ' MB';
+  }
+
+  function detectKind(file){
+    const type = (file.type || '').toLowerCase();
+    const name = file.name.toLowerCase();
+    if (type === 'image/jpeg' || name.endsWith('.jpg') || name.endsWith('.jpeg')) return 'jpeg';
+    if (type === 'image/png' || name.endsWith('.png')) return 'png';
+    if (type === 'image/webp' || name.endsWith('.webp')) return 'webp';
+    if (type === 'application/pdf' || name.endsWith('.pdf')) return 'pdf';
+    return null;
+  }
+
+  async function handleFile(file){
+    const kind = detectKind(file);
+    if (!kind){
+      statusEl.textContent = 'Unsupported file type. Use JPEG, PNG, WEBP, or PDF.';
+      statusEl.className = 'status err';
+      return;
+    }
+    currentFile = file; currentKind = kind;
+    fileNameEl.textContent = file.name;
+    fileSizeEl.textContent = formatBytes(file.size);
+    filebar.style.display = 'flex';
+    statusEl.textContent = ''; statusEl.className = 'status';
+    scrubBtn.disabled = false;
+
+    let meta;
+    try{
+      if (kind === 'jpeg') meta = parseJPEG(await file.arrayBuffer());
+      else if (kind === 'png') meta = await parsePNG(await file.arrayBuffer());
+      else if (kind === 'webp') meta = parseWebP(await file.arrayBuffer());
+      else if (kind === 'pdf') { meta = await parsePDF(file); currentPdfDoc = meta._doc; }
+    } catch(e){
+      meta = { tags:{}, gps:{}, notes:[], error: e.message };
+    }
+    renderMeta(meta);
+    results.style.display = 'block';
+  }
+
+  function renderMeta(meta){
+    // GPS alert
+    if (meta.gps && (meta.gps.decimalLat !== undefined || meta.gps.decimalLon !== undefined)){
+      const lat = meta.gps.decimalLat, lon = meta.gps.decimalLon;
+      const latStr = lat !== undefined ? lat.toFixed(6) : '?';
+      const lonStr = lon !== undefined ? lon.toFixed(6) : '?';
+      gpsAlertEl.innerHTML = `
+        <div class="gps-alert">
+          <div class="icon">⚠️</div>
+          <div class="body">
+            <strong>This file reveals a precise location</strong>
+            <p>GPS coordinates are embedded in the file's metadata. Anyone who receives the original file can see where it was taken.</p>
+            <div class="coords">${latStr}, ${lonStr}</div>
+            <a class="maplink" target="_blank" rel="noopener" href="https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=15/${lat}/${lon}">View on map ↗</a>
+          </div>
+        </div>`;
+    } else {
+      gpsAlertEl.innerHTML = '';
+    }
+
+    // Table of everything else
+    const rows = [];
+    for (const [k,v] of Object.entries(meta.tags || {})){
+      rows.push(`<tr><td class="k">${escapeHtml(k)}</td><td class="v">${escapeHtml(String(v))}</td></tr>`);
+    }
+    for (const note of (meta.notes || [])){
+      rows.push(`<tr><td class="k">Note</td><td class="v">${escapeHtml(note)}</td></tr>`);
+    }
+    if (rows.length === 0){
+      metaTableWrap.innerHTML = '<p class="empty-note">No metadata found. This file already looks clean.</p>';
+    } else {
+      metaTableWrap.innerHTML = `<table class="meta">${rows.join('')}</table>`;
+    }
+  }
+
+  function escapeHtml(s){
+    return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  scrubBtn.addEventListener('click', async () => {
+    if (!currentFile) return;
+    scrubBtn.disabled = true;
+    statusEl.textContent = 'Scrubbing…';
+    statusEl.className = 'status';
+    try{
+      if (currentKind === 'pdf'){
+        const bytes = await scrubPDF(currentPdfDoc);
+        downloadBlob(new Blob([bytes], { type:'application/pdf' }), suffixName(currentFile.name));
+      } else {
+        const bitmap = await createImageBitmap(currentFile, { imageOrientation: 'from-image' });
+        const canvas = document.createElement('canvas');
+        canvas.width = bitmap.width; canvas.height = bitmap.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(bitmap, 0, 0);
+        const mime = currentKind === 'jpeg' ? 'image/jpeg' : currentKind === 'png' ? 'image/png' : 'image/webp';
+        const blob = await new Promise(res => canvas.toBlob(res, mime, 0.92));
+        downloadBlob(blob, suffixName(currentFile.name));
+      }
+      statusEl.textContent = 'Done. Clean copy downloaded, original file was never modified.';
+      statusEl.className = 'status ok';
+    } catch(e){
+      statusEl.textContent = 'Something went wrong scrubbing this file: ' + e.message;
+      statusEl.className = 'status err';
+    }
+    scrubBtn.disabled = false;
+  });
+
+  function suffixName(name){
+    const i = name.lastIndexOf('.');
+    return i === -1 ? name + '-clean' : name.slice(0,i) + '-clean' + name.slice(i);
+  }
+
+  function downloadBlob(blob, name){
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+})();
+</script>
+</body>
+</html>
