@@ -71,6 +71,18 @@ Verify downloaded files locally without uploading them.
 
 [Full documentation →](./checksum-checker/README.md)
 
+### [Metadata Scrubber](https://egrelay.com/metadata-scrubber/)
+
+View and strip EXIF, GPS, and document metadata from images and PDFs, entirely in your browser.
+
+* JPEG, PNG, and WebP metadata parsing
+* PDF info dictionary and XMP metadata parsing
+* GPS coordinate detection with a decimal lat/long callout
+* Canvas-based re-encoding to scrub image metadata
+* PDF metadata scrubbing via pdf-lib
+
+[Full documentation →](./metadata-scrubber/README.md)
+
 ## Principles
 
 ### Local when possible
@@ -97,6 +109,7 @@ The complete source for the website and its tools is available in this repositor
 ├── checksum-checker/       # Local file checksum verifier
 ├── image-tool/             # Image converter and compressor
 ├── ledger/                 # Encrypted local notepad
+├── metadata-scrubber/      # Image and PDF metadata viewer/scrubber
 ├── password-generator/     # Password and passphrase generator
 ├── qr-generator/           # Offline QR code generator
 │   └── NOTICE.md           # Attribution and license for ported code (see below)
@@ -169,4 +182,3 @@ A current desktop or mobile browser is recommended. Certain features depend on m
 Licensed under the [MIT License](./LICENSE).
 
 The QR Code Generator tool's core logic was originally adapted from a separately MIT-licensed project; see [`qr-generator/NOTICE.md`](./qr-generator/NOTICE.md) for that project's original copyright notice, which is carried forward there as required.
-
