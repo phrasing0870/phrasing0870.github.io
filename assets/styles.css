@@ -6,24 +6,51 @@
   --border: #262d3a;
   --border-soft: #1d222d;
   --text: #e7ebf2;
-  --muted: #9ba3b1;
-  --muted-dim: #7f8794;
+  --muted: #9ea6b3;
+  --muted-dim: #989fa9;
   --accent: #78afe8;
   --accent-hover: #91c0ef;
   --accent-dim: #3d6690;
   --accent-soft: rgba(120, 175, 232, 0.12);
   --accent-glow: rgba(120, 175, 232, 0.15);
+  --on-accent: #080a0e;
+  --grid-line: rgba(255, 255, 255, 0.014);
   --success: #7cb79a;
-  --danger: #e08a78;
+  --danger: #e18e7c;
   --warn: #e0b975;
   --max: 1120px;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f5f6f9;
+    --bg-deep: #e8ebf1;
+    --panel: #ffffff;
+    --panel-hover: #eef1f6;
+    --border: #d7dce5;
+    --border-soft: #e2e6ed;
+    --text: #171a21;
+    --muted: #464e5a;
+    --muted-dim: #484d57;
+    --accent: #214e7c;
+    --accent-hover: #1a3f66;
+    --accent-dim: #12293f;
+    --accent-soft: rgba(33, 78, 124, 0.1);
+    --accent-glow: rgba(33, 78, 124, 0.12);
+    --on-accent: #ffffff;
+    --grid-line: rgba(13, 16, 22, 0.035);
+    --success: #1c553e;
+    --danger: #833325;
+    --warn: #694512;
+    color-scheme: light;
+  }
 }
 
 * { box-sizing: border-box; }
 
 html {
   scroll-behavior: smooth;
-  color-scheme: dark;
 }
 
 body {
@@ -32,11 +59,12 @@ body {
   color: var(--text);
   background:
     radial-gradient(circle at 50% -10%, var(--accent-glow), transparent 32rem),
-    linear-gradient(rgba(255,255,255,0.014) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.014) 1px, transparent 1px),
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px),
     var(--bg);
   background-size: auto, 32px 32px, 32px 32px, auto;
   font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  transition: background-color 150ms, color 150ms;
 }
 
 a { color: inherit; }
@@ -204,7 +232,7 @@ h1 span {
 
 .button.primary {
   background: var(--accent);
-  color: var(--bg-deep);
+  color: var(--on-accent);
 }
 
 .button.primary:hover { background: var(--accent-hover); }
@@ -302,7 +330,7 @@ h1 span {
 .tool-card:hover {
   transform: translateY(-4px);
   background-color: var(--panel-hover);
-  border-color: #3a4658;
+  border-color: var(--muted-dim);
 }
 
 .tool-card.featured {
@@ -544,7 +572,7 @@ h1 span {
   transition: all 150ms;
 }
 .tab:hover { color: var(--text); }
-.tab.active { background: var(--accent); color: var(--bg-deep); font-weight: 600; }
+.tab.active { background: var(--accent); color: var(--on-accent); font-weight: 600; }
 
 .output {
   display: flex;
@@ -567,7 +595,7 @@ h1 span {
 
 button.pw-btn {
   background: var(--accent);
-  color: var(--bg-deep);
+  color: var(--on-accent);
   border: none;
   border-radius: 3px;
   min-height: 44px;
