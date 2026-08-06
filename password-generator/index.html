@@ -51,6 +51,7 @@
       <div class="tabs">
         <div class="tab active" data-mode="random">Random</div>
         <div class="tab" data-mode="passphrase">Passphrase</div>
+        <div class="tab" data-mode="username">Username</div>
       </div>
 
       <div class="output">
@@ -58,7 +59,7 @@
         <button class="pw-btn" id="copyBtn">Copy</button>
       </div>
 
-      <div class="strength-bar"><div class="strength-fill" id="strengthFill"></div></div>
+      <div class="strength-bar" id="strengthBar"><div class="strength-fill" id="strengthFill"></div></div>
       <div class="strength-label" id="strengthLabel"></div>
 
       <!-- RANDOM PANEL -->
@@ -97,10 +98,47 @@
         </div>
       </div>
 
+      <!-- USERNAME PANEL -->
+      <div class="panel" id="panel-username">
+        <div class="wordlist-status" id="wordlistStatusUsername">
+          <span class="status-dot" id="wordlistStatusDotUsername"></span>
+          <span id="wordlistStatusTextUsername">Loading wordlist…</span>
+        </div>
+        <div class="row" style="margin-top:20px;">
+          <label for="unameWordCount">Words: <span id="unameWordCountVal">2</span></label>
+          <input type="range" id="unameWordCount" min="1" max="3" value="2">
+        </div>
+        <div class="row">
+          <label for="unameCase">Case style</label>
+          <select id="unameCase">
+            <option value="lower">lowercase</option>
+            <option value="upper">UPPERCASE</option>
+            <option value="capitalized" selected>Capitalized</option>
+            <option value="camel">camelCase</option>
+          </select>
+        </div>
+        <div class="row">
+          <label for="unameSeparator">Separator</label>
+          <input type="text" id="unameSeparator" value="" maxlength="3" placeholder="none">
+        </div>
+        <div class="row">
+          <label for="unameMaxLen">Max length: <span id="unameMaxLenVal">20</span></label>
+          <input type="range" id="unameMaxLen" min="6" max="40" value="20">
+        </div>
+        <div class="checks">
+          <label><input type="checkbox" id="unameAddNumber" checked> Add a number</label>
+          <label><input type="checkbox" id="unameAvoidLong"> Avoid long words</label>
+        </div>
+        <div class="row" id="unameDigitsRow">
+          <label for="unameDigits">Digits: <span id="unameDigitsVal">2</span></label>
+          <input type="range" id="unameDigits" min="1" max="4" value="2">
+        </div>
+      </div>
+
       <button class="pw-btn generate-btn" id="generateBtn">Generate</button>
 
       <div class="note">
-        Runs entirely in your browser. Uses crypto.getRandomValues (CSPRNG), not Math.random. Nothing you generate is ever sent anywhere. Passphrase mode uses the full 7,776-word EFF list, cached locally after first load so future visits skip the network entirely; if it can't be loaded (no network, CDN unreachable, first visit while offline, with no cache yet) it falls back to a smaller embedded list, so the tool always works either way. Live status is shown above the passphrase controls.
+        Runs entirely in your browser. Uses crypto.getRandomValues (CSPRNG), not Math.random. Nothing you generate is ever sent anywhere. Passphrase and Username modes share the full 7,776-word EFF list, cached locally after first load so future visits skip the network entirely; if it can't be loaded (no network, CDN unreachable, first visit while offline, with no cache yet) it falls back to a smaller embedded list, so the tool always works either way. Live status is shown above the controls for each mode.
       </div>
     </div>
   </main>
@@ -268,11 +306,17 @@ function isValidWordlist(list) {
 function setWordlistStatus(kind, label) {
   // kind: 'good' (fresh network fetch), 'cached' (loaded from localStorage),
   // 'fallback' (embedded list), or 'loading'
-  const dot = document.getElementById('wordlistStatusDot');
-  const text = document.getElementById('wordlistStatusText');
-  if (!dot || !text) return;
-  dot.className = 'status-dot' + (kind === 'good' ? ' status-good' : kind === 'cached' ? ' status-cached' : kind === 'fallback' ? ' status-fallback' : '');
-  text.textContent = ACTIVE_WORDS.length + '-word list: ' + label;
+  // Passphrase and Username modes share the same word list, so both status
+  // rows are updated together.
+  const cls = 'status-dot' + (kind === 'good' ? ' status-good' : kind === 'cached' ? ' status-cached' : kind === 'fallback' ? ' status-fallback' : '');
+  const msg = ACTIVE_WORDS.length + '-word list: ' + label;
+  [['wordlistStatusDot', 'wordlistStatusText'], ['wordlistStatusDotUsername', 'wordlistStatusTextUsername']].forEach(([dotId, textId]) => {
+    const dot = document.getElementById(dotId);
+    const text = document.getElementById(textId);
+    if (!dot || !text) return;
+    dot.className = cls;
+    text.textContent = msg;
+  });
 }
 
 function tryLoadFromCache() {
@@ -313,8 +357,8 @@ async function loadFullWordlist() {
     ACTIVE_WORDS = list;
     saveToCache(list);
     setWordlistStatus('good', 'EFF full list, fetched fresh');
-    // if a passphrase was already generated using the fallback list, refresh it
-    if (mode === 'passphrase') generate();
+    // if a passphrase/username was already generated using the fallback list, refresh it
+    if (mode === 'passphrase' || mode === 'username') generate();
   } catch (e) {
     // silent fallback, embedded list is already active
     setWordlistStatus('fallback', 'offline fallback list');
@@ -338,9 +382,12 @@ document.querySelectorAll('.tab').forEach(tab => {
     mode = tab.dataset.mode;
     document.getElementById('panel-random').classList.toggle('active', mode === 'random');
     document.getElementById('panel-passphrase').classList.toggle('active', mode === 'passphrase');
+    document.getElementById('panel-username').classList.toggle('active', mode === 'username');
+    document.getElementById('strengthBar').style.display = mode === 'username' ? 'none' : '';
+    strengthLabel.style.display = mode === 'username' ? 'none' : '';
     // fetch the full wordlist the first time someone actually opens passphrase
-    // mode, rather than on every page load regardless of which mode is used
-    if (mode === 'passphrase' && !wordlistLoadStarted) {
+    // or username mode, rather than on every page load regardless of which mode is used
+    if ((mode === 'passphrase' || mode === 'username') && !wordlistLoadStarted) {
       wordlistLoadStarted = true;
       loadFullWordlist();
     }
@@ -450,6 +497,76 @@ function generatePassphrase() {
   showStrength(entropy);
 }
 
+/* ---------- username mode ---------- */
+const unameWordCountInput = document.getElementById('unameWordCount');
+const unameWordCountVal = document.getElementById('unameWordCountVal');
+unameWordCountInput.addEventListener('input', () => { unameWordCountVal.textContent = unameWordCountInput.value; generate(); });
+
+const unameMaxLenInput = document.getElementById('unameMaxLen');
+const unameMaxLenVal = document.getElementById('unameMaxLenVal');
+unameMaxLenInput.addEventListener('input', () => { unameMaxLenVal.textContent = unameMaxLenInput.value; generate(); });
+
+const unameDigitsInput = document.getElementById('unameDigits');
+const unameDigitsVal = document.getElementById('unameDigitsVal');
+const unameDigitsRow = document.getElementById('unameDigitsRow');
+unameDigitsInput.addEventListener('input', () => { unameDigitsVal.textContent = unameDigitsInput.value; generate(); });
+
+const unameAddNumberCheckbox = document.getElementById('unameAddNumber');
+function syncUnameDigitsRow() { unameDigitsRow.style.display = unameAddNumberCheckbox.checked ? '' : 'none'; }
+unameAddNumberCheckbox.addEventListener('change', syncUnameDigitsRow);
+syncUnameDigitsRow();
+
+function generateUsername() {
+  const count = parseInt(unameWordCountInput.value, 10);
+  const caseStyle = document.getElementById('unameCase').value;
+  const sep = document.getElementById('unameSeparator').value || '';
+  const maxLen = parseInt(unameMaxLenInput.value, 10);
+  const addNumber = unameAddNumberCheckbox.checked;
+  const digits = parseInt(unameDigitsInput.value, 10);
+  const avoidLong = document.getElementById('unameAvoidLong').checked;
+
+  // "avoid long words" narrows the pool to shorter entries, useful when a
+  // site's username field has a tight character limit
+  let pool = ACTIVE_WORDS;
+  if (avoidLong) {
+    const shortPool = ACTIVE_WORDS.filter(w => w.length <= 6);
+    if (shortPool.length >= count) pool = shortPool;
+  }
+
+  function transform(word, index) {
+    switch (caseStyle) {
+      case 'lower': return word.toLowerCase();
+      case 'upper': return word.toUpperCase();
+      case 'camel': return index === 0 ? word.toLowerCase() : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      default: return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(); // capitalized
+    }
+  }
+
+  function buildCandidate(wordCount) {
+    const words = [];
+    for (let i = 0; i < wordCount; i++) {
+      words.push(transform(pool[getRandomInt(pool.length)], i));
+    }
+    let username = words.join(sep);
+    if (addNumber) username += String(getRandomInt(Math.pow(10, digits))).padStart(digits, '0');
+    return username;
+  }
+
+  // retry with fewer words if the result keeps exceeding the max length,
+  // rather than silently truncating a word mid-string
+  let wc = count;
+  let username = buildCandidate(wc);
+  let attempts = 0;
+  while (username.length > maxLen && attempts < 40) {
+    attempts++;
+    if (attempts % 10 === 0 && wc > 1) wc--;
+    username = buildCandidate(wc);
+  }
+  if (username.length > maxLen) username = username.slice(0, maxLen);
+
+  result.textContent = username;
+}
+
 /* ---------- shared strength meter ---------- */
 function showStrength(entropy) {
   let pct, color, label;
@@ -465,6 +582,7 @@ function showStrength(entropy) {
 
 function generate() {
   if (mode === 'random') generateRandom();
+  else if (mode === 'username') generateUsername();
   else generatePassphrase();
 }
 
@@ -482,9 +600,11 @@ generateBtn.addEventListener('click', generate);
 
 // live regeneration: any option change produces a fresh password immediately,
 // no need to press Generate
-['lower', 'upper', 'numbers', 'symbols', 'excludeAmbig', 'capitalize', 'addNumber']
+['lower', 'upper', 'numbers', 'symbols', 'excludeAmbig', 'capitalize', 'addNumber', 'unameAvoidLong']
   .forEach(id => document.getElementById(id).addEventListener('change', generate));
 document.getElementById('separator').addEventListener('input', generate);
+document.getElementById('unameSeparator').addEventListener('input', generate);
+document.getElementById('unameCase').addEventListener('change', generate);
 
 generate();
 </script>
