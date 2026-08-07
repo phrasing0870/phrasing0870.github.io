@@ -129,7 +129,7 @@
 
     <div id="results" style="display:none;">
       <div class="meta-section">
-        <h2>Found metadata</h2>
+        <h2>Detected metadata</h2>
         <div id="gpsAlert"></div>
         <div id="metaTableWrap"></div>
       </div>
@@ -145,7 +145,9 @@
       Images are scrubbed by redrawing them onto a canvas and re-exporting, which drops all EXIF, GPS,
       and embedded color profile data by construction. Orientation is baked into the pixels first, so the
       output still looks correct. PDFs are scrubbed by clearing the document info dictionary (author, creator,
-      producer, timestamps) and removing any embedded XMP metadata stream. No file ever leaves your device.
+      producer, timestamps) and removing the document-level XMP metadata stream. This does not remove metadata
+      in annotations, attachments, embedded objects, or JavaScript, and is not a full PDF sanitization tool.
+      No file ever leaves your device.
     </p>
   </div>
 </main>
@@ -439,11 +441,12 @@
       hasXMP = !!metaRef;
     } catch(e){}
     const notes = hasXMP ? ['Embedded XMP metadata stream present'] : [];
-    return { tags, gps:{}, notes, _doc: doc };
+    return { tags, gps:{}, notes };
   }
 
-  async function scrubPDF(doc){
-    const { PDFName } = window.PDFLib;
+  async function scrubPDF(arrayBuffer){
+    const { PDFDocument, PDFName } = window.PDFLib;
+    const doc = await PDFDocument.load(new Uint8Array(arrayBuffer), { updateMetadata: false, ignoreEncryption: true });
     doc.setTitle('');
     doc.setAuthor('');
     doc.setSubject('');
@@ -471,7 +474,6 @@
 
   let currentFile = null;
   let currentKind = null; // 'jpeg' | 'png' | 'webp' | 'pdf'
-  let currentPdfDoc = null;
 
   dropzone.addEventListener('click', () => fileInput.click());
   dropzone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
@@ -486,7 +488,7 @@
   resetBtn.addEventListener('click', resetAll);
 
   function resetAll(){
-    currentFile = null; currentKind = null; currentPdfDoc = null;
+    currentFile = null; currentKind = null;
     fileInput.value = '';
     filebar.style.display = 'none';
     results.style.display = 'none';
@@ -522,19 +524,20 @@
     fileSizeEl.textContent = formatBytes(file.size);
     filebar.style.display = 'flex';
     statusEl.textContent = ''; statusEl.className = 'status';
-    scrubBtn.disabled = false;
+    scrubBtn.disabled = true; // stays disabled until parsing finishes, closes the fast-click race window
 
     let meta;
     try{
       if (kind === 'jpeg') meta = parseJPEG(await file.arrayBuffer());
       else if (kind === 'png') meta = await parsePNG(await file.arrayBuffer());
       else if (kind === 'webp') meta = parseWebP(await file.arrayBuffer());
-      else if (kind === 'pdf') { meta = await parsePDF(file); currentPdfDoc = meta._doc; }
+      else if (kind === 'pdf') meta = await parsePDF(file);
     } catch(e){
       meta = { tags:{}, gps:{}, notes:[], error: e.message };
     }
     renderMeta(meta);
     results.style.display = 'block';
+    scrubBtn.disabled = false;
   }
 
   function renderMeta(meta){
@@ -566,7 +569,10 @@
       rows.push(`<tr><td class="k">Note</td><td class="v">${escapeHtml(note)}</td></tr>`);
     }
     if (rows.length === 0){
-      metaTableWrap.innerHTML = '<p class="empty-note">No metadata found. This file already looks clean.</p>';
+      const emptyMsg = currentKind === 'pdf'
+        ? 'No supported metadata detected in the document properties. PDF structure is complex; scrubbing removes common metadata but isn\'t guaranteed to catch everything embedded in the file.'
+        : 'No supported metadata detected. Regardless, scrubbing rebuilds the image from raw pixels, so any hidden data gets removed either way.';
+      metaTableWrap.innerHTML = `<p class="empty-note">${emptyMsg}</p>`;
     } else {
       metaTableWrap.innerHTML = `<table class="meta">${rows.join('')}</table>`;
     }
@@ -583,7 +589,7 @@
     statusEl.className = 'status';
     try{
       if (currentKind === 'pdf'){
-        const bytes = await scrubPDF(currentPdfDoc);
+        const bytes = await scrubPDF(await currentFile.arrayBuffer());
         downloadBlob(new Blob([bytes], { type:'application/pdf' }), suffixName(currentFile.name));
       } else {
         const bitmap = await createImageBitmap(currentFile, { imageOrientation: 'from-image' });
