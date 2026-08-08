@@ -284,9 +284,9 @@ const WORDS = ["able","acid","acorn","actor","adapt","admit","adult","after","ag
 "winter","wisdom","wolf","wonder","wooden","world","worthy","yacht","yearly","yellow",
 "yield","zebra","zenith","zephyr"];
 
-/* ---------- optionally load the full 7776-word EFF list from jsdelivr ---------- */
-/* Falls back to the embedded ~650-word list above if this fails (offline, CDN down, etc). */
-const EFF_WORDLIST_URL = 'https://cdn.jsdelivr.net/gh/phrasing0870/password-generator@main/words/eff_large.json';
+/* ---------- optionally load the full 7776-word EFF list, vendored locally ---------- */
+/* Falls back to the embedded ~650-word list above if this fails (offline, corrupted file, etc). */
+const EFF_WORDLIST_URL = 'words/eff_large.json';
 const WORDLIST_CACHE_KEY = 'eff_wordlist_cache_v1';
 let ACTIVE_WORDS = WORDS;
 

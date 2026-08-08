@@ -1,4 +1,4 @@
-const CACHE_NAME = 'egrelay-v3';
+const CACHE_NAME = 'egrelay-v4';
 
 // Core shell: cached immediately on install
 const CORE_ASSETS = [
@@ -16,6 +16,7 @@ const TOOL_ASSETS = [
   // password-generator
   '/password-generator/',
   '/password-generator/index.html',
+  '/password-generator/words/eff_large.json',
 
   // image-tool
   '/image-tool/',
