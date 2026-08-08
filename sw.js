@@ -1,4 +1,4 @@
-const CACHE_NAME = 'egrelay-v4';
+const CACHE_NAME = 'egrelay-v5';
 
 // Core shell: cached immediately on install
 const CORE_ASSETS = [
@@ -75,6 +75,10 @@ self.addEventListener('fetch', (event) => {
   // Only handle GET requests, let everything else pass through normally
   if (event.request.method !== 'GET') return;
 
+  // Skip Cloudflare's speculation-rules prefetch requests and any other
+  // /cdn-cgi/ internal endpoints, not real page assets, not worth caching
+  if (event.request.url.includes('/cdn-cgi/')) return;
+
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
@@ -90,11 +94,17 @@ self.addEventListener('fetch', (event) => {
           return response;
         })
         .catch(() => {
-          // Offline and not cached: fall back to 404 page for navigations
+          // Offline and not cached: fall back to 404 page for navigations,
+          // otherwise return an empty error response so respondWith always
+          // resolves to a valid Response
           if (event.request.mode === 'navigate') {
             return caches.match('/404.html');
           }
-        });
+          return new Response('', { status: 503, statusText: 'Offline' });
+        })
+        // In case caches.match('/404.html') itself comes back undefined
+        // (cache not yet populated), still guarantee a Response
+        .then((res) => res || new Response('', { status: 503, statusText: 'Offline' }));
     })
   );
 });
