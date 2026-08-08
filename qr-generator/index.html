@@ -7,8 +7,8 @@
 <meta name="description" content="Generate styled QR codes for text, URLs, WiFi networks, and contact cards. Runs entirely in your browser, nothing is uploaded.">
 
 <!-- qr-code-styling handles QR encoding + the dot/corner/pupil shape rendering.
-     Loaded from jsdelivr as a UMD build so no bundler/build step is needed. -->
-<script src="https://cdn.jsdelivr.net/npm/qr-code-styling@1.6.0-rc.1/lib/qr-code-styling.js"></script>
+     Vendored locally (UMD build, v1.6.0-rc.1) for offline use, no bundler/build step needed. -->
+<script src="qr-code-styling.js"></script>
 
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <style>
@@ -1135,6 +1135,11 @@ document.getElementById('year').textContent = new Date().getFullYear();
   // initial state
   el('wifiPasswordWrap').style.display = '';
 })();
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js");
+}
 </script>
 </body>
 </html>

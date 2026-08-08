@@ -42,6 +42,7 @@
     <title>EGRelay — Privacy-first browser tools</title>
 
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="/manifest.json" />
     <link rel="stylesheet" href="./assets/styles.css" />
   </head>
   <body>
@@ -232,6 +233,12 @@
 
     <script>
       document.getElementById("year").textContent = new Date().getFullYear();
+    </script>
+
+    <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js");
+    }
     </script>
   </body>
 </html>

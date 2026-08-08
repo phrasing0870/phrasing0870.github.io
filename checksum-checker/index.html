@@ -585,5 +585,10 @@ document.getElementById('year').textContent = new Date().getFullYear();
   });
 })();
 </script>
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js");
+}
+</script>
 </body>
 </html>
