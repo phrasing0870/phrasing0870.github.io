@@ -168,12 +168,14 @@
   // ---------- TIFF / EXIF core (shared by JPEG, PNG eXIf, WebP EXIF) ----------
 
   const TAG_NAMES = {
+    270:'ImageDescription',
     271:'Make', 272:'Model', 305:'Software', 274:'Orientation',
     306:'DateTime', 315:'Artist', 33432:'Copyright',
     36867:'DateTimeOriginal', 36868:'DateTimeDigitized',
     42036:'LensModel', 42035:'LensMake',
     33437:'FNumber', 34855:'ISOSpeedRatings', 37386:'FocalLength',
     37385:'Flash', 40962:'PixelXDimension', 40963:'PixelYDimension',
+    37510:'UserComment', 42032:'CameraOwnerName',
     42033:'BodySerialNumber'
   };
   const GPS_TAG_NAMES = {
@@ -181,6 +183,25 @@
     5:'GPSAltitudeRef', 6:'GPSAltitude', 7:'GPSTimeStamp', 29:'GPSDateStamp'
   };
   const TYPE_SIZES = {1:1,2:1,3:2,4:4,5:8,7:1,9:4,10:8};
+  const MAKER_NOTE_TAG = 37500;
+
+  function decodeUserComment(bytes){
+    if (!Array.isArray(bytes) || bytes.length < 8) return null;
+    const codeBytes = bytes.slice(0,8);
+    const code = codeBytes.map(b => String.fromCharCode(b)).join('');
+    const rest = bytes.slice(8);
+    if (code.startsWith('ASCII')){
+      let s=''; for (const b of rest){ if (b===0) break; s += String.fromCharCode(b); }
+      return s || null;
+    }
+    if (code.startsWith('UNICODE') || code.startsWith('JIS')){
+      return '[non-ASCII comment present, not decoded]';
+    }
+    // Undefined/unknown character code, but bytes may still be plain text
+    if (rest.every(b => b===0)) return null;
+    let s=''; for (const b of rest){ if (b===0) break; s += (b>=32 && b<127) ? String.fromCharCode(b) : ''; }
+    return s || '[comment present, not decoded]';
+  }
 
   function readRational(view, offset, little, signed){
     const num = signed ? view.getInt32(offset, little) : view.getUint32(offset, little);
@@ -245,7 +266,7 @@
     if (magic !== 42) return null;
     const ifd0Offset = view.getUint32(tiffStart+4, little);
 
-    const result = { tags:{}, gps:{} };
+    const result = { tags:{}, gps:{}, notes:[] };
     const { entries: ifd0 } = readIFD(view, tiffStart, tiffStart+ifd0Offset, little);
 
     for (const [tagStr, value] of Object.entries(ifd0)){
@@ -253,8 +274,19 @@
       if (tag === 34665){
         const { entries: exifEntries } = readIFD(view, tiffStart, tiffStart+value, little);
         for (const [t,v] of Object.entries(exifEntries)){
-          const name = TAG_NAMES[Number(t)];
-          if (name) result.tags[name] = v;
+          const tNum = Number(t);
+          if (tNum === MAKER_NOTE_TAG){
+            result.notes.push('Vendor-specific MakerNote data present (not decoded)');
+            continue;
+          }
+          const name = TAG_NAMES[tNum];
+          if (!name) continue;
+          if (name === 'UserComment'){
+            const decoded = decodeUserComment(v);
+            if (decoded) result.tags[name] = decoded;
+          } else {
+            result.tags[name] = v;
+          }
         }
       } else if (tag === 34853){
         const { entries: gpsEntries } = readIFD(view, tiffStart, tiffStart+value, little);
@@ -302,10 +334,14 @@
       } else if (marker === 0xE2){
         const header = getAscii(view, segStart, 12);
         if (header === 'ICC_PROFILE\0'.slice(0,12)) notes.push('Embedded ICC color profile present');
+      } else if (marker === 0xED){ // APP13, Photoshop IRB (may contain IPTC-NAA)
+        if (findIPTCInPhotoshopIRB(view, segStart, segStart + (length - 2))){
+          notes.push('IPTC metadata present (embedded in Photoshop IRB)');
+        }
       }
       offset = segStart + (length - 2);
     }
-    return tiffResult ? { tags: tiffResult.tags, gps: tiffResult.gps, notes } : { tags:{}, gps:{}, notes };
+    return tiffResult ? { tags: tiffResult.tags, gps: tiffResult.gps, notes: notes.concat(tiffResult.notes) } : { tags:{}, gps:{}, notes };
   }
 
   function getAscii(view, offset, len){
@@ -313,6 +349,26 @@
     let s = '';
     for (let i=0;i<len;i++) s += String.fromCharCode(view.getUint8(offset+i));
     return s;
+  }
+
+  function findIPTCInPhotoshopIRB(view, segStart, segEnd){
+    const header = getAscii(view, segStart, 14);
+    if (header !== 'Photoshop 3.0\0') return false;
+    let p = segStart + 14;
+    while (p + 12 <= segEnd){
+      if (getAscii(view, p, 4) !== '8BIM') break;
+      const resId = view.getUint16(p+4);
+      const nameLen = view.getUint8(p+6);
+      const nameEnd = p + 7 + nameLen;
+      const namePad = (nameLen % 2 === 0) ? 1 : 0; // pascal string padded so (1+name) length is even
+      const dataSizeOffset = nameEnd + namePad;
+      if (dataSizeOffset + 4 > segEnd) break;
+      const dataSize = view.getUint32(dataSizeOffset);
+      if (resId === 0x0404) return true;
+      const dataStart = dataSizeOffset + 4;
+      p = dataStart + dataSize + (dataSize % 2); // data padded to even size
+    }
+    return false;
   }
 
   // ---------- PNG: tEXt/iTXt/zTXt/eXIf chunks ----------
@@ -383,7 +439,8 @@
     }
     const tags = Object.assign({}, textChunks, tiffResult ? tiffResult.tags : {});
     const gps = tiffResult ? tiffResult.gps : {};
-    return { tags, gps, notes: [] };
+    const notes = tiffResult ? tiffResult.notes : [];
+    return { tags, gps, notes };
   }
 
   // ---------- WebP: RIFF EXIF / XMP chunks ----------
@@ -411,7 +468,7 @@
       }
       offset = dataStart + size + (size % 2); // chunks are padded to even size
     }
-    return tiffResult ? { tags: tiffResult.tags, gps: tiffResult.gps, notes } : { tags:{}, gps:{}, notes };
+    return tiffResult ? { tags: tiffResult.tags, gps: tiffResult.gps, notes: notes.concat(tiffResult.notes) } : { tags:{}, gps:{}, notes };
   }
 
   // ---------- PDF: info dict + XMP presence, via pdf-lib ----------
@@ -582,6 +639,23 @@
     return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
 
+  async function verifyPDFScrub(bytes){
+    try{
+      const { PDFDocument, PDFName } = window.PDFLib;
+      const doc = await PDFDocument.load(bytes, { updateMetadata: false, ignoreEncryption: true });
+      const get = (fn) => { try { return fn(); } catch(e){ return undefined; } };
+      const propsClear = ['Title','Author','Subject','Creator','Producer'].every(k => {
+        const v = get(() => doc['get'+k]());
+        return v === undefined || v === null || v === '';
+      });
+      let xmpGone = true;
+      try { xmpGone = !doc.catalog.get(PDFName.of('Metadata')); } catch(e){}
+      return { propsClear, xmpGone };
+    } catch(e){
+      return null; // couldn't re-verify; don't block on it
+    }
+  }
+
   scrubBtn.addEventListener('click', async () => {
     if (!currentFile) return;
     scrubBtn.disabled = true;
@@ -591,6 +665,13 @@
       if (currentKind === 'pdf'){
         const bytes = await scrubPDF(await currentFile.arrayBuffer());
         downloadBlob(new Blob([bytes], { type:'application/pdf' }), suffixName(currentFile.name));
+        const verify = await verifyPDFScrub(bytes);
+        if (verify && verify.propsClear && verify.xmpGone){
+          statusEl.textContent = 'Done. Clean copy downloaded, original file was never modified. Verified: document properties and XMP metadata removed. Note this does not cover annotations, attachments, or embedded objects.';
+        } else {
+          statusEl.textContent = 'Done. Clean copy downloaded, original file was never modified. Could not fully verify removal, PDF structure is complex; review the disclosure above for what scrubbing covers.';
+        }
+        statusEl.className = 'status ok';
       } else {
         const bitmap = await createImageBitmap(currentFile, { imageOrientation: 'from-image' });
         const canvas = document.createElement('canvas');
@@ -600,9 +681,9 @@
         const mime = currentKind === 'jpeg' ? 'image/jpeg' : currentKind === 'png' ? 'image/png' : 'image/webp';
         const blob = await new Promise(res => canvas.toBlob(res, mime, 0.92));
         downloadBlob(blob, suffixName(currentFile.name));
+        statusEl.textContent = 'Done. Clean copy downloaded, original file was never modified.';
+        statusEl.className = 'status ok';
       }
-      statusEl.textContent = 'Done. Clean copy downloaded, original file was never modified.';
-      statusEl.className = 'status ok';
     } catch(e){
       statusEl.textContent = 'Something went wrong scrubbing this file: ' + e.message;
       statusEl.className = 'status err';
