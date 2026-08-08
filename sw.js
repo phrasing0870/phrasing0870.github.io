@@ -1,4 +1,4 @@
-const CACHE_NAME = 'egrelay-v2';
+const CACHE_NAME = 'egrelay-v3';
 
 // Core shell: cached immediately on install
 const CORE_ASSETS = [
@@ -20,11 +20,11 @@ const TOOL_ASSETS = [
   // image-tool
   '/image-tool/',
   '/image-tool/index.html',
-  '/image-tool/mozjpeg-worker.js',
-  '/image-tool/oxipng-worker.js',
-  '/image-tool/gifenc.js',
-  '/image-tool/jszip.min.js',
-  '/image-tool/utif.js',
+  '/image-tool/vendor/mozjpeg-worker.js',
+  '/image-tool/vendor/oxipng-worker.js',
+  '/image-tool/vendor/gifenc.js',
+  '/image-tool/vendor/jszip.min.js',
+  '/image-tool/vendor/utif.js',
   '/image-tool/vendor/mozjpeg/mozjpeg_enc.js',
   '/image-tool/vendor/mozjpeg/mozjpeg_enc.wasm',
   '/image-tool/vendor/oxipng/squoosh_oxipng.js',
