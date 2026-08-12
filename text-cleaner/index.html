@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <meta
+      name="description"
+      content="Clean copied text locally in your browser. Remove invisible characters, normalize punctuation and whitespace, and strip Markdown without uploading anything."
+    />
+    <meta name="theme-color" content="#10131a" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://egrelay.com/text-cleaner/" />
+    <meta property="og:title" content="Text Cleaner — EGRelay" />
+    <meta
+      property="og:description"
+      content="Clean copied text locally. Remove invisible characters, normalize formatting, and strip Markdown without uploading anything."
+    />
+    <meta property="og:image" content="https://egrelay.com/assets/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:site_name" content="EGRelay" />
+
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://egrelay.com/text-cleaner/" />
+    <meta property="twitter:title" content="Text Cleaner — EGRelay" />
+    <meta
+      property="twitter:description"
+      content="Clean copied text locally. No uploads, no accounts, no unnecessary tracking."
+    />
+    <meta property="twitter:image" content="https://egrelay.com/assets/og-image.png" />
+
+    <title>Text Cleaner — EGRelay</title>
+
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="EGRelay home">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>EG<span class="accent">Relay</span></span>
+      </a>
+
+      <nav class="site-nav" aria-label="Primary navigation">
+        <a href="/#tools">Tools</a>
+        <a href="/#principles">Principles</a>
+        <a href="https://github.com/phrasing0870">GitHub</a>
+      </nav>
+    </header>
+
+    <main class="tool-main">
+      <section class="tool-masthead">
+        <a class="back-link" href="/">← Back to tools</a>
+        <p class="eyebrow"><span></span> Local text utility</p>
+        <h1>Text Cleaner</h1>
+        <p class="sub">
+          Clean copied text without sending it anywhere. Remove invisible
+          characters, normalize formatting, and strip Markdown when needed.
+        </p>
+      </section>
+
+      <section class="tool-card-panel cleaner-panel">
+        <div class="cleaner-presets" aria-label="Cleaning presets">
+          <button class="cleaner-preset active" type="button" data-preset="standard">
+            Standard
+          </button>
+          <button class="cleaner-preset" type="button" data-preset="plain">
+            Plain text
+          </button>
+          <button class="cleaner-preset" type="button" data-preset="code">
+            Code safe
+          </button>
+          <button class="cleaner-preset" type="button" data-preset="aggressive">
+            Aggressive
+          </button>
+        </div>
+
+        <div class="cleaner-editor">
+          <div class="cleaner-editor-heading">
+            <label for="inputText">Input</label>
+            <span class="cleaner-meta" id="inputStats">0 chars · 0 words · 0 lines</span>
+          </div>
+
+          <textarea
+            id="inputText"
+            spellcheck="false"
+            placeholder="Paste copied text here..."
+          ></textarea>
+        </div>
+
+        <div class="cleaner-options">
+          <label>
+            <input id="optInvisible" type="checkbox" checked />
+            Invisible characters
+          </label>
+
+          <label>
+            <input id="optNbsp" type="checkbox" checked />
+            Non-breaking spaces
+          </label>
+
+          <label>
+            <input id="optSmart" type="checkbox" checked />
+            Smart punctuation
+          </label>
+
+          <label>
+            <input id="optLineEndings" type="checkbox" checked />
+            Line endings
+          </label>
+
+          <label>
+            <input id="optTrailing" type="checkbox" checked />
+            Trailing whitespace
+          </label>
+
+          <label>
+            <input id="optBlankLines" type="checkbox" checked />
+            Excess blank lines
+          </label>
+
+          <label>
+            <input id="optMarkdown" type="checkbox" />
+            Markdown formatting
+          </label>
+
+          <label>
+            <input id="optListPrefixes" type="checkbox" />
+            List prefixes
+          </label>
+        </div>
+
+        <div class="cleaner-actions">
+          <button class="button primary cleaner-button" id="cleanBtn" type="button">
+            Clean text
+          </button>
+          <button class="button secondary cleaner-button" id="pasteBtn" type="button">
+            Paste
+          </button>
+          <button class="button secondary cleaner-button" id="resetBtn" type="button">
+            Reset
+          </button>
+        </div>
+
+        <div class="cleaner-divider"></div>
+
+        <div class="cleaner-editor">
+          <div class="cleaner-editor-heading">
+            <label for="outputText">Output</label>
+            <span class="cleaner-meta" id="outputStats">0 chars · 0 words · 0 lines</span>
+          </div>
+
+          <textarea
+            id="outputText"
+            spellcheck="false"
+            readonly
+            placeholder="Cleaned text will appear here..."
+          ></textarea>
+        </div>
+
+        <div class="cleaner-actions">
+          <button
+            class="button primary cleaner-button"
+            id="copyBtn"
+            type="button"
+            disabled
+          >
+            Copy cleaned text
+          </button>
+          <button
+            class="button secondary cleaner-button"
+            id="reuseBtn"
+            type="button"
+            disabled
+          >
+            Use as input
+          </button>
+        </div>
+
+        <div class="cleaner-report" aria-live="polite">
+          <div class="cleaner-report-heading">
+            <h2>Change report</h2>
+            <span id="presetLabel">Standard</span>
+          </div>
+          <div id="reportContent" class="cleaner-report-empty">
+            No changes yet.
+          </div>
+        </div>
+
+        <p class="note">
+          Everything runs locally in your browser. Text is never uploaded by this tool.
+        </p>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <a class="brand footer-brand" href="/">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>EG<span class="accent">Relay</span></span>
+      </a>
+      <p>Privacy-first browser tools.</p>
+      <div>
+        <a href="https://github.com/phrasing0870">GitHub</a>
+        <span>© <span id="year"></span> EGRelay</span>
+      </div>
+    </footer>
+
+    <script src="./script.js"></script>
+    <script>
+      document.getElementById("year").textContent = new Date().getFullYear();
+
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/sw.js");
+      }
+    </script>
+  </body>
+</html>
