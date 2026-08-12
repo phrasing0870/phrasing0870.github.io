@@ -1,4 +1,4 @@
-const CACHE_NAME = 'egrelay-v5';
+const CACHE_NAME = 'egrelay-v6';
 
 // Core shell: cached immediately on install
 const CORE_ASSETS = [
@@ -47,6 +47,11 @@ const TOOL_ASSETS = [
   // checksum-checker
   '/checksum-checker/',
   '/checksum-checker/index.html',
+
+  // text-cleaner
+  '/text-cleaner/',
+  '/text-cleaner/index.html',
+  '/text-cleaner/script.js',
 ];
 
 const ALL_ASSETS = [...CORE_ASSETS, ...TOOL_ASSETS];
