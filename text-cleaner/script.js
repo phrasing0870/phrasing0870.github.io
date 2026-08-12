@@ -23,6 +23,9 @@ const options = {
   blankLines: document.getElementById("optBlankLines"),
   markdown: document.getElementById("optMarkdown"),
   listPrefixes: document.getElementById("optListPrefixes"),
+  collapseSpaces: document.getElementById("optCollapseSpaces"),
+  noBlankLines: document.getElementById("optNoBlankLines"),
+  symbols: document.getElementById("optSymbols"),
 };
 
 const presets = {
@@ -36,6 +39,9 @@ const presets = {
     blankLines: true,
     markdown: false,
     listPrefixes: false,
+    collapseSpaces: false,
+    noBlankLines: false,
+    symbols: false,
   },
 
   plain: {
@@ -48,6 +54,9 @@ const presets = {
     blankLines: true,
     markdown: true,
     listPrefixes: true,
+    collapseSpaces: false,
+    noBlankLines: false,
+    symbols: false,
   },
 
   code: {
@@ -60,6 +69,9 @@ const presets = {
     blankLines: false,
     markdown: false,
     listPrefixes: false,
+    collapseSpaces: false,
+    noBlankLines: false,
+    symbols: false,
   },
 
   aggressive: {
@@ -72,6 +84,24 @@ const presets = {
     blankLines: true,
     markdown: true,
     listPrefixes: true,
+    collapseSpaces: true,
+    noBlankLines: true,
+    symbols: true,
+  },
+
+  ai: {
+    label: "AI cleanup",
+    invisible: true,
+    nbsp: true,
+    smart: true,
+    lineEndings: true,
+    trailing: true,
+    blankLines: true,
+    markdown: true,
+    listPrefixes: true,
+    collapseSpaces: true,
+    noBlankLines: false,
+    symbols: true,
   },
 };
 
@@ -138,6 +168,10 @@ function stripMarkdown(text) {
     ""
   );
 
+  // Bold + italic combined
+  output = output.replace(/\*\*\*([^*]+)\*\*\*/g, "$1");
+  output = output.replace(/___([^_]+)___/g, "$1");
+
   // Bold
   output = output.replace(/\*\*([^*]+)\*\*/g, "$1");
   output = output.replace(/__([^_]+)__/g, "$1");
@@ -157,8 +191,11 @@ function cleanText(text) {
   const changes = [];
 
   if (options.invisible.checked) {
+    // Note: U+200D (zero-width joiner) is intentionally excluded.
+    // It glues compound emoji together (families, flags, skin tones),
+    // and stripping it breaks those apart into separate glyphs.
     const regex =
-      /[\u200B\u200C\u200D\u2060\uFEFF\u00AD]/g;
+      /[\u200B\u200C\u2060\uFEFF\u00AD]/g;
 
     const count = countMatches(output, regex);
 
@@ -196,7 +233,9 @@ function cleanText(text) {
         value: "'",
       },
       {
-        regex: /[‐-–—]/g,
+        // Hyphen, non-breaking hyphen, figure dash, en dash,
+        // em dash, horizontal bar
+        regex: /[\u2010\u2011\u2012\u2013\u2014\u2015]/g,
         value: "-",
       },
       {
@@ -301,6 +340,69 @@ function cleanText(text) {
     }
   }
 
+  if (options.collapseSpaces.checked) {
+    const regex = /[ \t]{2,}/g;
+
+    const count = countMatches(output, regex);
+
+    if (count > 0) {
+      output = output.replace(regex, " ");
+
+      changes.push(
+        `${count} run${count === 1 ? "" : "s"} of repeated spaces collapsed`
+      );
+    }
+  }
+
+  if (options.noBlankLines.checked) {
+    const before = output;
+
+    output = output.replace(/\n{2,}/g, "\n");
+
+    if (before !== output) {
+      changes.push("All blank lines removed");
+    }
+  }
+
+  if (options.symbols.checked) {
+    // Emoji and symbols commonly used by AI assistants as bullets,
+    // section markers, or emphasis (rocket for "getting started",
+    // checkmark for "done", pin for "note", etc.)
+    const decorative = [
+      "✅", "❌", "✔️", "✔", "☑️", "⚠️", "💡", "🔑", "📌", "📝",
+      "🚀", "🔥", "➡️", "→", "⭐", "✨", "👉", "🎯", "💪", "🙌",
+      "👍", "❤️", "🔴", "🟢", "🟡", "🟠", "🔵", "⬇️", "⬆️",
+      "▪️", "▫️", "◾", "◽", "‣",
+    ];
+
+    const symbolRegex = new RegExp(decorative.join("|"), "gu");
+
+    let removedCount = 0;
+
+    const cleanedLines = output.split("\n").map((line) => {
+      const matches = countMatches(line, symbolRegex);
+
+      if (matches === 0) {
+        return line;
+      }
+
+      removedCount += matches;
+
+      return line
+        .replace(symbolRegex, "")
+        .replace(/[ \t]{2,}/g, " ")
+        .trim();
+    });
+
+    if (removedCount > 0) {
+      output = cleanedLines.join("\n");
+
+      changes.push(
+        `${removedCount} decorative symbol${removedCount === 1 ? "" : "s"} removed`
+      );
+    }
+  }
+
   return {
     output,
     changes,
@@ -364,6 +466,10 @@ async function pasteText() {
 
     updateStats();
   } catch {
+    reportContent.className = "cleaner-report-empty";
+    reportContent.textContent =
+      "Clipboard access denied. Paste manually with Ctrl/Cmd+V.";
+
     inputText.focus();
   }
 }
