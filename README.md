@@ -125,7 +125,6 @@ The complete source for the website and its tools is available in this repositor
 │   └── NOTICE.md           # Attribution and license for ported code (see below)
 ├── text-cleaner/           # Local text cleanup and formatting tool
 ├── index.html              # EGRelay homepage
-├── CNAME                   # GitHub Pages custom domain
 ├── robots.txt
 └── sitemap.xml
 ```
@@ -159,15 +158,11 @@ A local server is recommended instead of opening the HTML files directly because
 
 ## Deployment
 
-The site is deployed through GitHub Pages from the root of the `main` branch.
+The site is deployed through Cloudflare Pages, connected directly to the `main` branch of this repository. Pushes to `main` are published automatically, with no separate build pipeline.
 
-The `CNAME` file connects the deployment to:
+The custom domain, `egrelay.com`, is configured on the Cloudflare Pages project rather than through a `CNAME` file in the repository.
 
-```text
-egrelay.com
-```
-
-Because this is a GitHub user-site repository, changes pushed to the deployed branch are published without a separate build pipeline.
+The site was originally hosted on GitHub Pages (via this repository's `github.io` name); that setup has since been replaced by Cloudflare Pages.
 
 ## Privacy
 
