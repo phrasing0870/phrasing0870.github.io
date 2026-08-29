@@ -83,6 +83,16 @@ View and strip EXIF, GPS, and document metadata from images and PDFs, entirely i
 
 [Full documentation →](./metadata-scrubber/README.md)
 
+### [Text Cleaner](https://egrelay.com/text-cleaner/)
+
+Clean copied text locally, without sending it anywhere.
+
+* Removes invisible characters and non-breaking spaces
+* Normalizes smart punctuation, line endings, and whitespace
+* Optional Markdown and list-prefix stripping
+* Cleaning presets: Standard, Plain text, Code safe, Aggressive, AI cleanup
+* Change report summarizing what was modified
+
 ## Principles
 
 ### Local when possible
@@ -113,6 +123,7 @@ The complete source for the website and its tools is available in this repositor
 ├── password-generator/     # Password and passphrase generator
 ├── qr-generator/           # Offline QR code generator
 │   └── NOTICE.md           # Attribution and license for ported code (see below)
+├── text-cleaner/           # Local text cleanup and formatting tool
 ├── index.html              # EGRelay homepage
 ├── CNAME                   # GitHub Pages custom domain
 ├── robots.txt
